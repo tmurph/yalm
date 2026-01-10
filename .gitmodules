@@ -1,0 +1,9 @@
+[submodule "nael"]
+	path = nael
+	url = https://codeberg.org/mekeor/nael.git
+[submodule "lean4-mode"]
+	path = lean4-mode
+	url = https://github.com/leanprover-community/lean4-mode.git
+[submodule "lean-ts-mode"]
+	path = lean-ts-mode
+	url = https://github.com/lua-vr/lean-ts-mode.git
