@@ -13,7 +13,20 @@
 
 ;;; Code:
 
-(defconst lean-keywords1
+(defconst lean-declarations
+  '("instance" "structure" "class" "theorem" "axiom" "lemma" "definition" "def" "constant")
+  "Lean declarations.")
+(defconst lean-declarations-regexp
+  (rx word-start
+      (group (eval (append '(or "inductive"
+                                (group "class" (zero-or-more whitespace) "inductive"))
+                           lean-declarations)))
+      word-end (zero-or-more whitespace)
+      (group (zero-or-more "{" (zero-or-more (not (any "}"))) "}" (zero-or-more whitespace)))
+      (zero-or-more whitespace)
+      (group (zero-or-more (not (any " \t\n\r{(["))))))
+
+(defconst lean-keywords
   '("import" "prelude" "protected" "private" "noncomputable"
     "unsafe" "partial" "renaming" "hiding" "begin" "constant"
     "variable" "variables" "theorem" "example" "abbrev"
@@ -28,8 +41,8 @@
     "mutual" "def" "run_cmd" "declare_syntax_cat" "syntax" "macro_rules" "macro" "scoped" "elab"
     "initialize" "builtin_initialize" "register_builtin_option" "induction" "cases" "generalizing" "unif_hint" "deriving")
   "Lean keywords ending with `word' (not symbol).")
-(defconst lean-keywords1-regexp
-  (rx-to-string `(: word-start (or ,@lean-keywords1) word-end) t))
+(defconst lean-keywords-regexp
+  (rx word-start (eval (cons 'or lean-keywords)) word-end))
 
 (defconst lean-constants
   '("#" "@" "!" "$" "->" "∼" "↔" "/" "==" "=" ":=" "<->" "/\\" "\\/" "∧" "∨"
@@ -49,11 +62,11 @@
 
 (defconst lean-warnings '("sorry") "Lean warnings.")
 (defconst lean-warnings-regexp
-  (rx-to-string `(: word-start (or ,@lean-warnings) word-end) t))
+  (rx word-start (eval (cons 'or lean-warnings)) word-end))
 
 (defconst lean-debugging '("unreachable!" "panic!" "assert!" "dbg_trace") "Lean debugging.")
 (defconst lean-debugging-regexp
-  (rx-to-string `(: word-start (or ,@lean-debugging) word-end) t))
+  (rx word-start (eval (cons 'or lean-debugging)) word-end))
 
 (defconst lean4-font-lock-defaults
   `((;; attributes
@@ -74,18 +87,12 @@
            (group (zero-or-more (not (any " \t\n\r{([,"))) (zero-or-more (zero-or-more whitespace) "," (zero-or-more whitespace) (not (any " \t\n\r{([,")))))
       (1 'font-lock-function-name-face))
      ;; declarations
-     (,(rx word-start
-           (group (or "inductive" (group "class" (zero-or-more whitespace) "inductive") "instance" "structure" "class" "theorem" "axiom" "lemma" "definition" "def" "constant"))
-           word-end (zero-or-more whitespace)
-           (group (zero-or-more "{" (zero-or-more (not (any "}"))) "}" (zero-or-more whitespace)))
-           (zero-or-more whitespace)
-           (group (zero-or-more (not (any " \t\n\r{([")))))
-      (4 'font-lock-function-name-face))
+     (,lean-declarations-regexp (4 'font-lock-function-name-face))
      ;; Constants which have a keyword as subterm
      (,(rx (or "∘if")) . 'font-lock-constant-face)
      ;; Keywords
      ("\\(set_option\\)[ \t]*\\([^ \t\n]*\\)" (2 'font-lock-constant-face))
-     (,lean-keywords1-regexp . 'font-lock-keyword-face)
+     (,lean-keywords-regexp . 'font-lock-keyword-face)
      (,(rx word-start (group "example") ".") (1 'font-lock-keyword-face))
      (,(rx (or "∎")) . 'font-lock-keyword-face)
      ;; Types

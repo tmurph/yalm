@@ -55,6 +55,8 @@
 (require 'rx)
 (require 'seq)
 (require 'lean-syntax)
+(require 'lean-font-lock)
+(require 'lean-treesitter)
 
 ;; forward declarations
 (defvar lsp-managed-mode-hook)
@@ -74,24 +76,165 @@ of treesitter and the lean grammar.
 If you change this setting you will need to restart the major mode."
   :type 'boolean)
 
-;;;; Auxiliary Functions and Commands:
+;;;; Utility Functions
 
-(defun nael-comment-insert ()
-  "`comment-insert-comment-function' for `nael-mode'."
+;;;; Comments
+
+(defconst lean--line-comment-region-alist
+  '((comment-start . "-- ") (comment-end . "") (comment-style . indent))
+  "Make `comment-region' wrap a region with line comments.")
+
+(defconst lean--section-comment-region-alist
+  '((comment-start . "/-!") (comment-end . "-/") (comment-style . extra-line))
+  "Make `comment-region' wrap a region with a module / section block comment.")
+
+(defconst lean--declaration-comment-region-alist
+  '((comment-start . "/--") (comment-end . "-/") (comment-style . extra-line))
+  "Make `comment-region' wrap a region with a declaration block comment.")
+
+(defun lean--set-comment-variables ()
+  (setq-local comment-start "-- ")
+  (setq-local comment-start-skip "\\(?:--\\|/-!?\\)[[:space:]]*")
+  (setq-local comment-end "")
+  (setq-local comment-end-skip "[[:space:]]*\\(?:-/\\|\\s>\\)")
+  (setq-local comment-padding 1)
+  (setq-local comment-insert-comment-function #'lean-insert-comment)
+  (setq-local comment-quote-nested nil)
+  (setq-local comment-style 'indent)
+  (setq-local comment-use-syntax t)
+  (setq-local parse-sexp-ignore-comments t))
+
+;;; why isn't there a builtin for this already?
+;;; for now just reuse evil, but need a better long term solution
+(defalias 'lean--in-comment-p #'evil-in-comment-p)
+
+;;; TODO: unit test for this
+(defun lean--comment-current-alist ()
+  "Detect settings for comment at point.  Nil if no comment."
+  (save-excursion
+    ;; want to use `comment-beginning' here, but it returns nil if point
+    ;; is actually on the comment starter.  boo.  I'm currently
+    ;; leveraging `evil-in-comment-p' for my in-comment-p, and evil's
+    ;; just so happens to work in this case + returns the start position.
+    ;;
+    ;; so that's neat for now, but you're gonna need to do something
+    ;; about that eventually.
+    (when-let ((pos (lean--in-comment-p)))
+      (goto-char pos)
+      (catch :found
+        (dolist (alist (list lean--line-comment-region-alist
+                             lean--block-comment-region-alist
+                             lean--section-comment-region-alist
+                             lean--declaration-comment-region-alist))
+          (when (looking-at-p (alist-get 'comment-start alist))
+            (throw :found alist)))))))
+
+;;; TODO: unit test for this
+;;; NOTE: just use `comment-beginning' to work out what's there?
+;;; TODO: get important strings from the variable alists?
+(defun lean--comment-replace-alist ()
+  "Settings to use when replacing an empty comment.  Nil for no replace."
+  (or (and (save-excursion
+             (beginning-of-line)
+             (looking-at-p (rx (zero-or-more space)
+                               "--"
+                               (zero-or-more space)
+                               eol)))
+           ;; empty line comment -> empty block comment
+           lean--block-comment-region-alist)
+      (and (save-excursion
+             (skip-chars-forward " \t\n")
+             (looking-at-p "-/"))
+           (save-excursion
+             (skip-chars-backward " \t\n")
+             ;; unsure why, but when looking- functions fail to match
+             ;; they don't set (match-string 0) to nil.  so gotta use
+             ;; this construct to decide match vs no-match.  am I doing
+             ;; something wrong?
+             (when (looking-back "/-\\(.\\)?" (line-beginning-position))
+               (pcase (match-string 1)
+                 ;; module / section comment -> empty line comment
+                 ("!" lean--line-comment-region-alist)
+                 ;; declaration comment -> empty line comment
+                 ("-" lean--line-comment-region-alist)
+                 ;; block comment -> section or declaration comment
+                 ((pred null)
+                  ;; is the following line a declaration?
+                  (skip-chars-forward " \t\n")
+                  (forward-line 1)
+                  (if (looking-at-p lean-declarations-regexp)
+                      lean--declaration-comment-region-alist
+                    lean--section-comment-region-alist))))))))
+
+(defun lean--comment-insert-alist ()
+  "Settings to use when inserting an empty comment."
+  (or (and (save-excursion (skip-chars-backward " \t\n")
+                           (bobp))
+           ;; top level
+           lean--section-comment-region-alist)
+      (and (save-excursion (forward-line 1)
+                           (looking-at-p lean-declarations-regexp))
+           lean--declaration-comment-region-alist)
+      lean--line-comment-region-alist))
+
+(defun lean--comment-dwim-with-alist (extra-alist)
+  (let-alist extra-alist
+    (let ((comment-start (or .comment-start comment-start))
+          (comment-end (or .comment-end comment-end))
+          (comment-style (or .comment-style comment-style)))
+      (call-interactively #'comment-dwim))))
+
+;;; TODO: unit test this
+(defun lean-comment-dwim (arg)
+  "Call the comment command you want (Do What I Mean).
+
+This is like `comment-dwim', except this command will also rotate
+through various block comment styles if called repeatedly."
+  (interactive "*P")
+  (cond
+   ((use-region-p)
+    ;; punt on region-specific logic for now
+    (call-interactively #'comment-dwim))
+   ((not (lean--in-comment-p))
+    (lean--comment-dwim-with-alist (lean--comment-insert-alist)))
+   ((lean--comment-replace-alist)       ; cond-let when available
+    (let ((alist (lean--comment-replace-alist)))
+      (comment-beginning)
+      (comment-kill nil)
+      (lean--comment-dwim-with-alist alist)))
+   (t
+    (lean--comment-dwim-with-alist (lean--comment-current-alist)))))
+
+;;; NOTE: this is erroneously called from `commend-indent' when we're
+;;; inside a block comment, so be ready for that case.
+(defun lean-insert-comment ()
+  "`comment-insert-comment-function' for `lean-mode'."
   (interactive)
-  (if (save-excursion (beginning-of-line)
-                      (looking-at-p "[[:blank:]]*$"))
-      (progn
-        ;; Respect users who set `comment-start' to "--".
-        (insert comment-start " ")
-        ;; Respect users who set `comment-end' to "".
-        (unless (length= comment-end 0)
-          (save-excursion
-            (insert " " comment-end))))
+  (cond
+   ((save-excursion (beginning-of-line)
+                    (looking-at-p "[[:blank:]]*$"))
+    (pcase comment-style
+      ('extra-line
+       (insert comment-start "\n")
+       (save-excursion (insert "\n" comment-end)))
+      (_
+       ;; Respect users who set `comment-start' to "--"
+       (insert comment-start)
+       (when (string-match-p "[^[:space:]]\\'" comment-start)
+         (insert " "))
+       (save-excursion
+         (when (string-match-p "\\`[^[:space:]]" comment-end)
+           (insert " "))
+         (insert comment-end)))))
+   ((save-excursion (beginning-of-line)
+                    (lean--in-comment-p))
+    ;; `comment-indent' called because it can't recognize block comments
+    nil)
+   (t
     (end-of-line)
     (unless (looking-back "[[:blank:]]" (1- (point)))
       (insert " "))
-    (insert "-- ")))
+    (insert "-- "))))
 
 (defun nael-fill-paragraph (&optional justify)
   "Fill comment paragraph at point.  Maybe JUSTIFY."
@@ -131,6 +274,17 @@ If you change this setting you will need to restart the major mode."
                (looking-back "--" (max (- (point) 2) (point-min)))
                (forward-char))
           (fill-comment-paragraph justify))))))
+
+;;;; Indentation
+
+(defun lean--set-indent-variables ()
+  (setq-local tab-width 2
+              standard-indent 2
+              indent-tabs-mode nil))
+
+;;;; Navigation
+
+;;;; Auxiliary Functions and Commands:
 
 ;; TODO: Both `nael-navigation-defun-beginning' and
 ;; `nael-navigation-defun-name' currently lack support for `mutual'
@@ -296,27 +450,6 @@ least evaluated an autoload statement for
               "[[:blank:]]*$")
   (setq-local fill-paragraph-function
               #'nael-fill-paragraph)
-  ;; Comments:
-  (setq-local comment-end
-              "-/")
-  (setq-local comment-end-skip
-              "[[:space:]]*-/")
-  (setq-local comment-insert-comment-function
-              #'nael-comment-insert)
-  (setq-local comment-padding
-              1)
-  (setq-local comment-quote-nested ;; Comments may be nested.
-              nil)
-  (setq-local comment-start
-              "/-")
-  (setq-local comment-start-skip
-              "/-[[:space:]]*")
-  (setq-local comment-style
-              'multi-line)
-  (setq-local comment-use-syntax
-              t)
-  (setq-local parse-sexp-ignore-comments
-              t)
   ;; Font-lock:
   (setq-local font-lock-defaults
               nael-font-lock-defaults)
