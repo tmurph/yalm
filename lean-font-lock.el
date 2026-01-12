@@ -70,7 +70,9 @@
 
 (defconst lean4-font-lock-defaults
   `((;; attributes
-     (,(rx word-start "attribute" word-end (zero-or-more whitespace) (group (one-or-more "[" (zero-or-more (not (any "]"))) "]" (zero-or-more whitespace))))
+     (,(rx word-start "attribute" word-end (zero-or-more whitespace)
+           (group (one-or-more "[" (zero-or-more (not (any "]"))) "]"
+                               (zero-or-more whitespace))))
       (1 'font-lock-preprocessor-face))
      (,(rx (group "@[" (zero-or-more (not (any "]"))) "]"))
       (1 'font-lock-preprocessor-face))
@@ -84,7 +86,9 @@
            word-start
            (or "inductive" "definition" "def")
            word-end
-           (group (zero-or-more (not (any " \t\n\r{([,"))) (zero-or-more (zero-or-more whitespace) "," (zero-or-more whitespace) (not (any " \t\n\r{([,")))))
+           (group (zero-or-more (not (any " \t\n\r{([,")))
+                  (zero-or-more (zero-or-more whitespace) "," (zero-or-more whitespace)
+                                (not (any " \t\n\r{([,")))))
       (1 'font-lock-function-name-face))
      ;; declarations
      (,lean-declarations-regexp (4 'font-lock-function-name-face))
