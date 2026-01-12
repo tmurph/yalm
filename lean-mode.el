@@ -106,9 +106,29 @@ If you change this setting you will need to restart the major mode."
 
 ;;; why isn't there a builtin for this already?
 ;;; for now just reuse evil, but need a better long term solution
-(defalias 'lean--in-comment-p #'evil-in-comment-p)
+(defun lean--in-comment-p (&optional pos)
+  "Check if POS is within a comment according to current syntax.
+If POS is nil, (point) is used. The return value is the beginning
+position of the comment."
+  (setq pos (or pos (point)))
+  (let ((chkpos
+         (cond
+          ((eobp) pos)
+          ((= (char-syntax (char-after)) ?<) (1+ pos))
+          ((and (not (zerop (logand (car (syntax-after (point)))
+                                    (ash 1 16))))
+                (not (zerop (logand (or (car (syntax-after (1+ (point)))) 0)
+                                    (ash 1 17)))))
+           (+ pos 2))
+          ((and (not (zerop (logand (car (syntax-after (point)))
+                                    (ash 1 17))))
+                (not (zerop (logand (or (car (syntax-after (1- (point)))) 0)
+                                    (ash 1 16)))))
+           (1+ pos))
+          (t pos))))
+    (let ((syn (save-excursion (syntax-ppss chkpos))))
+      (and (nth 4 syn) (nth 8 syn)))))
 
-;;; TODO: unit test for this
 (defun lean--comment-current-alist ()
   "Detect settings for comment at point.  Nil if no comment."
   (save-excursion
@@ -129,7 +149,6 @@ If you change this setting you will need to restart the major mode."
           (when (looking-at-p (alist-get 'comment-start alist))
             (throw :found alist)))))))
 
-;;; TODO: unit test for this
 ;;; NOTE: just use `comment-beginning' to work out what's there?
 ;;; TODO: get important strings from the variable alists?
 (defun lean--comment-replace-alist ()
@@ -184,7 +203,6 @@ If you change this setting you will need to restart the major mode."
           (comment-style (or .comment-style comment-style)))
       (call-interactively #'comment-dwim))))
 
-;;; TODO: unit test this
 (defun lean-comment-dwim (arg)
   "Call the comment command you want (Do What I Mean).
 
@@ -236,45 +254,6 @@ through various block comment styles if called repeatedly."
       (insert " "))
     (insert "-- "))))
 
-(defun nael-fill-paragraph (&optional justify)
-  "Fill comment paragraph at point.  Maybe JUSTIFY."
-  (interactive)
-  (when (save-excursion (nth 4 (syntax-ppss (point))))
-    (let* ((com-beg (save-excursion
-                      (re-search-backward "[/-]-" nil t)
-                      (match-beginning 0)))
-           (multi (eq (char-after com-beg) ?/)))
-      (if multi
-          (let* ((par-beg (save-excursion
-                            (re-search-backward paragraph-start nil t)
-                            (match-beginning 0)))
-                 (beg (max com-beg par-beg))
-                 (com-end (if multi "-/" "$"))
-                 (com-end (save-excursion
-                            ;; If cursor is at -|/, then move to |-/,
-                            ;; so that `re-search-forward' can locate
-                            ;; comment ending.
-                            (and (eq (char-before) ?-)
-                                 (eq (char-after) ?/)
-                                 (backward-char))
-                            (re-search-forward com-end nil t)
-                            (match-end 0)))
-                 (par-end (save-excursion
-                            (search-forward paragraph-separate nil t)
-                            (match-end 0)))
-                 (end (min com-end par-end)))
-            (fill-region beg end justify))
-        ;; `fill-comment-paragraph' fills prefixed comments well, when
-        ;; configured correctly.
-        (let ((comment-start "--") (comment-end ""))
-          ;; For some reason, "" is used as fill-prefix by
-          ;; `fill-comment-paragraph' when point is at --|.  Avoid
-          ;; this misbehavior by moving point forward one char.
-          (and (not (eolp))
-               (looking-back "--" (max (- (point) 2) (point-min)))
-               (forward-char))
-          (fill-comment-paragraph justify))))))
-
 ;;;; Indentation
 
 (defun lean--set-indent-variables ()
@@ -282,187 +261,98 @@ through various block comment styles if called repeatedly."
               standard-indent 2
               indent-tabs-mode nil))
 
-;;;; Navigation
+;; (defun nael-fill-paragraph (&optional justify)
+;;   "Fill comment paragraph at point.  Maybe JUSTIFY."
+;;   (interactive)
+;;   (when (save-excursion (nth 4 (syntax-ppss (point))))
+;;     (let* ((com-beg (save-excursion
+;;                       (re-search-backward "[/-]-" nil t)
+;;                       (match-beginning 0)))
+;;            (multi (eq (char-after com-beg) ?/)))
+;;       (if multi
+;;           (let* ((par-beg (save-excursion
+;;                             (re-search-backward paragraph-start nil t)
+;;                             (match-beginning 0)))
+;;                  (beg (max com-beg par-beg))
+;;                  (com-end (if multi "-/" "$"))
+;;                  (com-end (save-excursion
+;;                             ;; If cursor is at -|/, then move to |-/,
+;;                             ;; so that `re-search-forward' can locate
+;;                             ;; comment ending.
+;;                             (and (eq (char-before) ?-)
+;;                                  (eq (char-after) ?/)
+;;                                  (backward-char))
+;;                             (re-search-forward com-end nil t)
+;;                             (match-end 0)))
+;;                  (par-end (save-excursion
+;;                             (search-forward paragraph-separate nil t)
+;;                             (match-end 0)))
+;;                  (end (min com-end par-end)))
+;;             (fill-region beg end justify))
+;;         ;; `fill-comment-paragraph' fills prefixed comments well, when
+;;         ;; configured correctly.
+;;         (let ((comment-start "--") (comment-end ""))
+;;           ;; For some reason, "" is used as fill-prefix by
+;;           ;; `fill-comment-paragraph' when point is at --|.  Avoid
+;;           ;; this misbehavior by moving point forward one char.
+;;           (and (not (eolp))
+;;                (looking-back "--" (max (- (point) 2) (point-min)))
+;;                (forward-char))
+;;           (fill-comment-paragraph justify))))))
 
-;;;; Auxiliary Functions and Commands:
+;;;; Navigation
 
 ;; TODO: Both `nael-navigation-defun-beginning' and
 ;; `nael-navigation-defun-name' currently lack support for `mutual'
 ;; blocks, i.e. mutually recursive definitions.
 
-(defun nael-navigation-defun-end ()
-  "`end-of-defun-function' for `nael-mode'."
-  (interactive)
-  (when (re-search-forward nael-syntax-definition nil t)
-    (goto-char (match-beginning 0))))
+;; (defun nael-navigation-defun-end ()
+;;   "`end-of-defun-function' for `nael-mode'."
+;;   (interactive)
+;;   (when (re-search-forward nael-syntax-definition nil t)
+;;     (goto-char (match-beginning 0))))
 
-(defun nael-navigation-defun-beginning ()
-  "`beginning-of-defun-function' for `nael-mode'."
-  (interactive)
-  (re-search-backward nael-syntax-definition nil t))
+;; (defun nael-navigation-defun-beginning ()
+;;   "`beginning-of-defun-function' for `nael-mode'."
+;;   (interactive)
+;;   (re-search-backward nael-syntax-definition nil t))
 
-(defun nael-navigation-defun-name ()
-  "`add-log-current-defun-function' for `nael-mode'."
-  (save-excursion
-    (when (nael-navigation-defun-beginning)
-      (forward-symbol 1)
-      (forward-whitespace 1)
-      (symbol-at-point))))
+;; (defun nael-navigation-defun-name ()
+;;   "`add-log-current-defun-function' for `nael-mode'."
+;;   (save-excursion
+;;     (when (nael-navigation-defun-beginning)
+;;       (forward-symbol 1)
+;;       (forward-whitespace 1)
+;;       (symbol-at-point))))
 
-(defvar nael-imenu-generic-expression
-  (list (list nil nael-syntax-definition 4))
-  "`imenu-generic-expression' for `nael-mode'.")
-
-;;;; Preparation:
-
-;; Our goal is to avoid loading `nael-abbrev' / `abbrev', `nael-eglot'
-;; / `eglot' and `nael-lsp' / `lsp', until the user calls one of their
-;; autoloaded commands.  We are lucky that `post-self-insert-hook' is
-;; strictly loaded and that `eglot-server-initialized-hook',
-;; `eglot-managed-mode-hook' as well as `lsp-managed-mode-hook' are
-;; all initialized to nil, in usual Emacs manner.  Thus, it's fine to
-;; call `add-hook' on them, even if they have not been defined as
-;; variables yet.
-
-;; We could introduce a hook, with all of
-;; `nael-prepare-{abbrev,eglot,lsp}' being default members of it,
-;; which we could run in the beginning of the definition-body of
-;; `nael-mode'.  As mentioned, though, it's uncommon in Emacs to have
-;; hooks initialized with non-nil values and some common functions
-;; like `add-hook' rely on this practice.  Thus, we use boolean flags
-;; instead.
-
-(defcustom nael-prepare-abbrev t
-  "Whether `abbrev-mode' should be prepared for `nael-mode'."
-  :type 'boolean
-  :group 'nael)
-
-(defun nael-prepare-abbrev ()
-  "Prepare `abbrev-mode' for `nael-mode'.
-
-Expand symbol-including abbreviations when adequate character inserted."
-  (interactive)
-  (when nael-prepare-abbrev
-    (add-hook 'abbrev-mode-hook
-              #'nael-abbrev-configure nil 'local)))
-
-(defcustom nael-prepare-eglot t
-  "Whether `eglot' should be prepared for `nael-mode'."
-  :type 'boolean
-  :group 'nael)
-
-(defun nael-prepare-eglot ()
-  "Prepare `eglot' for `nael-mode'."
-  (interactive)
-  (when nael-prepare-eglot
-    ;; We want to add an entry to `eglot-server-programs' but we want
-    ;; to avoid stricly loading `eglot' here.  Unfortunately, Eglot
-    ;; doesn't offer any hook that'd be run before it accesses
-    ;; `eglot-server-programs'.  We have no choice but
-    ;; `with-eval-after-load'.
-    (with-eval-after-load 'eglot
-      (require 'nael-eglot))
-    (add-hook 'eglot-server-initialized-hook
-              #'nael-eglot-configure-when-initialized nil 'local)
-    (add-hook 'eglot-managed-mode-hook
-              #'nael-eglot-configure-when-managed nil 'local)))
-
-(defcustom nael-prepare-lsp t
-  "Whether `lsp-mode' should be prepared for `nael-mode'."
-  :type 'boolean
-  :group 'nael)
-
-(defun nael-prepare-lsp ()
-  "Prepare `lsp-mode' for `nael-mode'.
-
-Note that if you call `lsp-mode' inside a buffer majored by `nael-mode',
-it is unguardedly assumed that you have `nael-lsp' package installed and
-that either you have `nael-lsp' loaded, or `nael-lsp-autoloads', or at
-least evaluated an autoload statement for
-`nael-lsp-configure-when-managed'."
-  (interactive)
-  (when nael-prepare-lsp
-    ;; The `lsp-language-id-configuration' variable needs to be
-    ;; modified so early, that hooks don't work.  We have no choice
-    ;; but `with-eval-after-load'.
-    (with-eval-after-load 'lsp-mode
-      (require 'nael-lsp))
-    (add-hook 'lsp-managed-mode-hook
-              #'nael-lsp-configure-when-managed nil 'local)))
-
-;; Let's use the same interface (a configure-function, a
-;; prepare-option and -function) for Flymake too because we don't load
-;; or invoke it in `nael-mode' itself.
-
-(defun nael-flymake-configure ()
-  "Use Flymake to jump to errors."
-  (interactive)
-  (setq-local next-error-function
-              #'flymake-goto-next-error))
-
-(defcustom nael-prepare-flymake t
-  "Whether `flymake-mode' should be prepared for `nael-mode'."
-  :type 'boolean
-  :group 'nael)
-
-(defun nael-prepare-flymake ()
-  "Prepare `flymake-mode' for `nael-mode'."
-  (interactive)
-  (when nael-prepare-flymake
-    (add-hook 'flymake-mode-hook
-              #'nael-flymake-configure nil 'local)))
+;; (defvar nael-imenu-generic-expression
+;;   (list (list nil nael-syntax-definition 4))
+;;   "`imenu-generic-expression' for `nael-mode'.")
 
 ;;;; Mode:
 
-(defcustom nael-mode-hook nil
-  "Hook run when entering `nael-mode'."
-  :options '(abbrev-mode eglot-ensure imenu-add-menubar-index lsp)
-  :type 'hook
-  :group 'nael)
-
-(defvar-keymap nael-mode-map
-  "<remap> <display-local-help>" #'eldoc-doc-buffer
-  "C-c C-a" #'abbrev-mode
-  "C-c C-c" #'project-compile
-  "C-c C-e" #'eglot
-  "C-c C-k" #'nael-abbrev-help)
+(defvar-keymap lean-mode-map
+  "<remap> <display-local-help>" #'eldoc-doc-buffer)
 
 ;;;###autoload
-(define-derived-mode nael-mode prog-mode "Nael"
+(define-derived-mode lean-mode prog-mode "Lean"
   "Major mode for Lean.
 
-\\{nael-mode-map}"
+\\{lean-mode-map}"
   ;; Preparations:
-  (nael-prepare-abbrev)
-  (nael-prepare-eglot)
-  (nael-prepare-lsp)
+
   ;; Navigation:
-  (setq-local add-log-current-defun-function
-              #'nael-navigation-defun-name)
-  (setq-local beginning-of-defun-function
-              #'nael-navigation-defun-beginning)
-  (setq-local end-of-defun-function
-              #'nael-navigation-defun-end)
+
   ;; Paragraphs and filling:
-  (setq-local paragraph-start
-              "[[:blank:]]*$")
-  (setq-local paragraph-separate
-              "[[:blank:]]*$")
-  (setq-local fill-paragraph-function
-              #'nael-fill-paragraph)
+
   ;; Font-lock:
-  (setq-local font-lock-defaults
-              nael-font-lock-defaults)
+
   ;; Compile:
-  (setq-local compilation-mode-font-lock-keywords
-              nil)
-  (setq-local compile-command
-              "lake build ")
+
   ;; Imenu:
-  (setq-local imenu-generic-expression
-              nael-imenu-generic-expression)
+
   ;; Flymake:
-  (nael-flymake-configure))
+  )
 
 ;; Lean language specification requires UTF-8 encoding.
 (modify-coding-system-alist 'file "\\.lean\\'" 'utf-8)
@@ -471,19 +361,18 @@ least evaluated an autoload statement for
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist
-             (cons "\\.lean\\'" 'nael-mode))
+             (cons "\\.lean\\'" 'lean-mode))
 
 (with-eval-after-load 'org-src
   (add-to-list 'org-src-lang-modes
-               (cons "lean" 'nael)))
+               (cons "lean" 'lean)))
 
 ;; If the code that requires `markdown-mode' grows, we will extract it
 ;; into a new package that depends on it.  But a single expression is
 ;; not worth a package.
 (with-eval-after-load 'markdown-mode
   (add-to-list 'markdown-code-lang-modes
-               (cons "lean" 'nael-mode)))
+               (cons "lean" 'lean-mode)))
 
-(provide 'nael)
-
-;;; nael.el ends here
+(provide 'lean-mode)
+;;; lean-mode.el ends here
