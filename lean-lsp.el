@@ -17,6 +17,17 @@
 (require 'eglot)
 (require 'jsonrpc)
 
+;;;; Lean LSP Extensions
+
+(eval-and-compile
+  (dolist (elt
+           '((lean:PlainGoal (:goals) nil)
+             (lean:PlainTermGoal (:goal) nil)
+             (lean:Diagnostic
+              (:range :fullRange :message)
+              (:code :relatedInformation :severity :source :tags))))
+    (add-to-list 'eglot--lsp-interface-alist elt t)))
+
 ;;;; Generic Method API
 
 ;;; To add more backend support, define an appropriate generic dispatch

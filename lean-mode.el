@@ -273,20 +273,18 @@ Currently so experimental that we don't support anything."
       (3 font-lock-comment-face t)))))
 
 (defconst lean-infoview-font-lock-defaults
-  (let ((new-entries
-         `(;; Please add more after this:
-           (,(rx (group (+ symbol-start (+ (or word (char ?₁ ?₂ ?₃ ?₄ ?₅ ?₆ ?₇ ?₈ ?₉ ?₀))) symbol-end (* white))) ":")
-            (1 'font-lock-variable-name-face))
-           (,(rx white ":" white)
-            . 'font-lock-keyword-face)
-           (,(rx "⊢" white)
-            . 'font-lock-keyword-face)
-           (,(rx "[" (group "stale") "]")
-            (1 'font-lock-warning-face))
-           (,(rx line-start "No Goal" line-end)
-            . 'font-lock-constant-face)))
-        (inherited-entries (car lean-font-lock-defaults)))
-    `(,(-concat new-entries inherited-entries))))
+  `((;; Please add more after this:
+     (,(rx (group (+ symbol-start (+ (or word (char ?₁ ?₂ ?₃ ?₄ ?₅ ?₆ ?₇ ?₈ ?₉ ?₀))) symbol-end (* white))) ":")
+      (1 'font-lock-variable-name-face))
+     (,(rx white ":" white)
+      . 'font-lock-keyword-face)
+     (,(rx "⊢" white)
+      . 'font-lock-keyword-face)
+     (,(rx "[" (group "stale") "]")
+      (1 'font-lock-warning-face))
+     (,(rx line-start "No Goal" line-end)
+      . 'font-lock-constant-face)
+     ,@(car lean-font-lock-defaults))))
 
 ;;;; Comments:
 
