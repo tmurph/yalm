@@ -51,8 +51,6 @@
 ;;; Code:
 
 (require 'eglot)
-(require 'project)
-(require 'rx)
 (require 'seq)
 
 (require 'lean-lsp)
@@ -281,7 +279,9 @@ Currently so experimental that we don't support anything."
 
 (defconst lean-infoview-font-lock-defaults
   `((;; Please add more after this:
-     (,(rx (group (+ symbol-start (+ (or word (char ?₁ ?₂ ?₃ ?₄ ?₅ ?₆ ?₇ ?₈ ?₉ ?₀))) symbol-end (* white))) ":")
+     (,(rx (group (+ symbol-start (+ (or word (char ?₁ ?₂ ?₃ ?₄ ?₅ ?₆ ?₇ ?₈ ?₉ ?₀)))
+                     symbol-end (* white)))
+           ":")
       (1 'font-lock-variable-name-face))
      (,(rx white ":" white)
       . 'font-lock-keyword-face)
@@ -561,40 +561,38 @@ through various block comment styles if called repeatedly."
   "Name of buffer that is used to fontify responses from the LSP server.")
 
 (defun lean-infoview--goals (callback goals)
-  (if (= (length goals) 0)
-      ;; TODO: print the "goals accomplished" to an infoview buffer
-      (funcall callback nil)
-    (with-temp-buffer
-      (let (goal start end)
+  (seq-let (g &rest gs) goals
+    (if (null g)
+        ;; TODO: print the "goals accomplished" to an infoview buffer
+        (funcall callback nil)
+      (with-temp-buffer
         (with-demoted-errors "Error during fontlock: %s"
-          (insert (propertize "Tactic state:\n" 'face
-                              'lean-infoview-section-face)
-                  "\n")
-          (while goals
-            (setq goal (pop goals))
-            (insert "  ")
-            (unless start (setq start (point-marker)))
-            (insert goal)
-            (unless end (setq end (point-marker)))
-            (insert "\n\n"))
+          (insert (replace-regexp-in-string "^" "  " g))
+          (seq-doseq (gg gs)
+            (insert "\n\n" (replace-regexp-in-string "^" "  " gg)))
           (delay-mode-hooks (funcall 'lean-infoview-mode))
-          (ignore-errors (font-lock-ensure)))
+          (ignore-errors (font-lock-ensure))
+          (goto-char (point-min))
+          (insert (propertize "Tactic state:\n"
+                              'face 'lean-infoview-section-face)
+                  "\n"))
         (funcall callback (buffer-string)
-                 :echo (buffer-substring start end))))))
+                 (list :echo g))))))
 
 (defun lean-infoview--term-goal (callback goal)
-  (if (= (length goal) 0)
+  (if (or (null goal) (string= "" goal))
       (funcall callback nil)
     (with-temp-buffer
       (with-demoted-errors "Error during fontlock: %s"
-        (insert (propertize "Expected type:\n" 'face
-                            'lean-infoview-section-face)
-                "\n")
-        (insert "  " (eglot--format-markup goal))
+        (insert (replace-regexp-in-string "^" "  " (eglot--format-markup goal)))
         (delay-mode-hooks (funcall 'lean-infoview-mode))
-        (ignore-errors (font-lock-ensure)))
+        (ignore-errors (font-lock-ensure))
+        (goto-char (point-min))
+        (insert (propertize "Expected type:\n"
+                            'face 'lean-infoview-section-face)
+                "\n"))
       (funcall callback (buffer-string)
-               :echo 'skip))))
+               (list :echo 'skip)))))
 
 (defun lean-infoview-goals (callback &rest _)
   "ElDoc documentation function for the plain goals.
@@ -609,7 +607,7 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
                            #'lean-infoview--goals callback))
 
 (defun lean-infoview-term-goal (callback &rest _)
-  "ElDoc documentation function for the type of the term at point.
+  "ElDoc documentation function for the expected type of the term at point.
 
 ElDoc will provide CALLBACK.  See `eldoc-documentation-functions' for
 instructions on using CALLBACK to provide documentation info.
