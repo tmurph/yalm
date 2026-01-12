@@ -86,7 +86,7 @@ call the ElDoc callback."
   (jsonrpc-async-request (eglot--current-server-or-lose)
                          method (eglot--TextDocumentPositionParams)
                          :success-fn (eglot--lambda ((lean:PlainTermGoal) goal)
-                                       (funcall params success goals))
+                                       (funcall params success goal))
                          :error-fn (or error-handler #'ignore)))
 
 (provide 'lean-lsp)

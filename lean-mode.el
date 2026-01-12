@@ -60,6 +60,8 @@
 ;;;; Autoloads and Forward Declarations
 
 (autoload 'lean-ts-setup "lean-ts")
+(defvar org-src-lang-modes)
+(defvar markdown-code-lang-modes)
 
 ;;; Internal Variables
 
@@ -166,9 +168,10 @@ Currently so experimental that we don't support anything."
 
 ;;;; Font Locking:
 
-(defconst lean--declarations
-  '("instance" "structure" "class" "theorem" "axiom" "lemma" "definition" "def" "constant")
-  "Lean declarations.")
+(eval-and-compile
+  (defconst lean--declarations
+    '("instance" "structure" "class" "theorem" "axiom" "lemma" "definition" "def" "constant")
+    "Lean declarations."))
 (defconst lean--declarations-regexp
   (rx word-start
       (group (eval (append '(or "inductive"
@@ -179,33 +182,35 @@ Currently so experimental that we don't support anything."
       (zero-or-more whitespace)
       (group (zero-or-more (not (any " \t\n\r{(["))))))
 
-(defconst lean--keywords
-  '("import" "prelude" "protected" "private" "noncomputable"
-    "unsafe" "partial" "renaming" "hiding" "begin" "constant"
-    "variable" "variables" "theorem" "example" "abbrev"
-    "open" "export" "axiom" "inductive" "with"
-    "structure" "universe" "universes" "hide"
-    "precedence" "match_syntax" "match" "nomatch" "infix" "infixl" "infixr" "notation" "postfix" "prefix" "instance"
-    "end" "this" "using" "using_well_founded" "namespace" "section"
-    "attribute" "local" "set_option" "extends" "include" "class"
-    "attributes" "raw" "have" "show" "suffices" "by" "in" "at" "do" "let" "for" "unless" "break" "continue"
-    "try" "catch" "finally" "where" "rec" "mut" "forall" "fun"
-    "exists" "if" "then" "else" "from" "init_quot" "return"
-    "mutual" "def" "run_cmd" "declare_syntax_cat" "syntax" "macro_rules" "macro" "scoped" "elab"
-    "initialize" "builtin_initialize" "register_builtin_option" "induction" "cases" "generalizing" "unif_hint" "deriving")
-  "Lean keywords ending with `word' (not symbol).")
+(eval-and-compile
+  (defconst lean--keywords
+    '("import" "prelude" "protected" "private" "noncomputable"
+      "unsafe" "partial" "renaming" "hiding" "begin" "constant"
+      "variable" "variables" "theorem" "example" "abbrev"
+      "open" "export" "axiom" "inductive" "with"
+      "structure" "universe" "universes" "hide"
+      "precedence" "match_syntax" "match" "nomatch" "infix" "infixl" "infixr" "notation" "postfix" "prefix" "instance"
+      "end" "this" "using" "using_well_founded" "namespace" "section"
+      "attribute" "local" "set_option" "extends" "include" "class"
+      "attributes" "raw" "have" "show" "suffices" "by" "in" "at" "do" "let" "for" "unless" "break" "continue"
+      "try" "catch" "finally" "where" "rec" "mut" "forall" "fun"
+      "exists" "if" "then" "else" "from" "init_quot" "return"
+      "mutual" "def" "run_cmd" "declare_syntax_cat" "syntax" "macro_rules" "macro" "scoped" "elab"
+      "initialize" "builtin_initialize" "register_builtin_option" "induction" "cases" "generalizing" "unif_hint" "deriving")
+    "Lean keywords ending with `word' (not symbol)."))
 (defconst lean--keywords-regexp
   (rx word-start (eval (cons 'or lean--keywords)) word-end))
 
-(defconst lean--constants
-  '("#" "@" "!" "$" "->" "∼" "↔" "/" "==" "=" ":=" "<->" "/\\" "\\/" "∧" "∨"
-    "≠" "<" ">" "≤" "≥" "¬" "<=" ">=" "⁻¹" "⬝" "▸" "+" "*" "-" "/" "λ"
-    "→" "∃" "∀" "∘" "×" "Σ" "Π" "~" "||" "&&" "≃" "≡" "≅"
-    "ℕ" "ℤ" "ℚ" "ℝ" "ℂ" "𝔸"
-    "⬝e" "⬝i" "⬝o" "⬝op" "⬝po" "⬝h" "⬝v" "⬝hp" "⬝vp" "⬝ph" "⬝pv" "⬝r" "◾" "◾o"
-    "∘n" "∘f" "∘fi" "∘nf" "∘fn" "∘n1f" "∘1nf" "∘f1n" "∘fn1"
-    "^c" "≃c" "≅c" "×c" "×f" "×n" "+c" "+f" "+n" "ℕ₋₂")
-  "Lean constants.")
+(eval-and-compile
+  (defconst lean--constants
+    '("#" "@" "!" "$" "->" "∼" "↔" "/" "==" "=" ":=" "<->" "/\\" "\\/" "∧" "∨"
+      "≠" "<" ">" "≤" "≥" "¬" "<=" ">=" "⁻¹" "⬝" "▸" "+" "*" "-" "/" "λ"
+      "→" "∃" "∀" "∘" "×" "Σ" "Π" "~" "||" "&&" "≃" "≡" "≅"
+      "ℕ" "ℤ" "ℚ" "ℝ" "ℂ" "𝔸"
+      "⬝e" "⬝i" "⬝o" "⬝op" "⬝po" "⬝h" "⬝v" "⬝hp" "⬝vp" "⬝ph" "⬝pv" "⬝r" "◾" "◾o"
+      "∘n" "∘f" "∘fi" "∘nf" "∘fn" "∘n1f" "∘1nf" "∘f1n" "∘fn1"
+      "^c" "≃c" "≅c" "×c" "×f" "×n" "+c" "+f" "+n" "ℕ₋₂")
+    "Lean constants."))
 (defconst lean--constants-regexp (regexp-opt lean--constants))
 
 (defconst lean--numerals-regexp
@@ -213,11 +218,13 @@ Currently so experimental that we don't support anything."
       (one-or-more digit) (optional (and "." (zero-or-more digit)))
       word-end))
 
-(defconst lean--warnings '("sorry") "Lean warnings.")
+(eval-and-compile
+  (defconst lean--warnings '("sorry") "Lean warnings."))
 (defconst lean--warnings-regexp
   (rx word-start (eval (cons 'or lean--warnings)) word-end))
 
-(defconst lean--debugging '("unreachable!" "panic!" "assert!" "dbg_trace") "Lean debugging.")
+(eval-and-compile
+  (defconst lean--debugging '("unreachable!" "panic!" "assert!" "dbg_trace") "Lean debugging."))
 (defconst lean--debugging-regexp
   (rx word-start (eval (cons 'or lean--debugging)) word-end))
 
@@ -291,6 +298,10 @@ Currently so experimental that we don't support anything."
 (defconst lean--line-comment-region-alist
   '((comment-start . "-- ") (comment-end . "") (comment-style . indent))
   "Make `comment-region' wrap a region with line comments.")
+
+(defconst lean--block-comment-region-alist
+  '((comment-start . "/- ") (comment-end . " -/") (comment-style . multi-line))
+  "Make `comment-region' wrap a region with a block comment.")
 
 (defconst lean--section-comment-region-alist
   '((comment-start . "/-!") (comment-end . "-/") (comment-style . extra-line))
@@ -392,12 +403,12 @@ position of the comment."
            lean--declaration-comment-region-alist)
       lean--line-comment-region-alist))
 
-(defun lean--comment-dwim-with-alist (extra-alist)
+(defun lean--comment-dwim-with-alist (extra-alist &optional arg)
   (let-alist extra-alist
     (let ((comment-start (or .comment-start comment-start))
           (comment-end (or .comment-end comment-end))
           (comment-style (or .comment-style comment-style)))
-      (call-interactively #'comment-dwim))))
+      (comment-dwim arg))))
 
 (defun lean-comment-dwim (arg)
   "Call the comment command you want (Do What I Mean).
@@ -408,7 +419,7 @@ through various block comment styles if called repeatedly."
   (cond
    ((use-region-p)
     ;; punt on region-specific logic for now
-    (call-interactively #'comment-dwim))
+    (comment-dwim arg))
    ((not (lean--in-comment-p))
     (lean--comment-dwim-with-alist (lean--comment-insert-alist)))
    ((lean--comment-replace-alist)       ; cond-let when available
@@ -525,52 +536,6 @@ through various block comment styles if called repeatedly."
 ;;   (list (list nil nael-syntax-definition 4))
 ;;   "`imenu-generic-expression' for `nael-mode'.")
 
-;;;; Mode:
-
-(defvar-keymap lean-mode-map
-  "<remap> <display-local-help>" #'eldoc-doc-buffer
-  "<remap> <comment-dwim>" #'lean-comment-dwim)
-
-;;;###autoload
-(define-derived-mode lean-mode prog-mode "Lean"
-  "Major mode for Lean.
-
-\\{lean-mode-map}"
-  :syntax-table lean-mode-syntax-table
-
-  ;; Comments:
-  (setq-local comment-start "-- ")
-  (setq-local comment-start-skip "\\(?:--\\|/-!?\\)[[:space:]]*")
-  (setq-local comment-end "")
-  (setq-local comment-end-skip "[[:space:]]*\\(?:-/\\|\\s>\\)")
-  (setq-local comment-style 'indent)
-  (setq-local comment-padding 1)
-  (setq-local comment-insert-comment-function #'lean-insert-comment)
-  (setq-local comment-quote-nested nil)
-  (setq-local comment-use-syntax t)
-  (setq-local parse-sexp-ignore-comments t)
-
-  ;; Navigation:
-
-  ;; Paragraphs and filling:
-
-  ;; Font Locking:
-  (setq-local font-lock-defaults lean-font-lock-defaults)
-
-  ;; Compile:
-
-  ;; Imenu:
-
-  ;; Flymake:
-
-  ;; LSP:
-  ;; unlike most LSP servers, lake does not output anything on startup,
-  ;; so Eglot will by default wait around
-  (setq-local eglot-sync-connect nil))
-
-;; Lean language specification requires UTF-8 encoding.
-(modify-coding-system-alist 'file "\\.lean\\'" 'utf-8)
-
 ;;;; Infoview:
 
 ;;; Inspired by nael, we hook into the eldoc mechanisms.  Inspired by
@@ -654,6 +619,55 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
   (lean-lsp--ensure-backend)
   (lean-lsp--request-async lean-lsp--backend :$/lean/plainTermGoal
                            #'lean-infoview--term-goal callback))
+
+;;;; Mode:
+
+(defvar-keymap lean-mode-map
+  "<remap> <display-local-help>" #'eldoc-doc-buffer
+  "<remap> <comment-dwim>" #'lean-comment-dwim)
+
+;;;###autoload
+(define-derived-mode lean-mode prog-mode "Lean"
+  "Major mode for Lean.
+
+\\{lean-mode-map}"
+  :syntax-table lean-mode-syntax-table
+
+  ;; Comments:
+  (setq-local comment-start "-- ")
+  (setq-local comment-start-skip "\\(?:--\\|/-!?\\)[[:space:]]*")
+  (setq-local comment-end "")
+  (setq-local comment-end-skip "[[:space:]]*\\(?:-/\\|\\s>\\)")
+  (setq-local comment-style 'indent)
+  (setq-local comment-padding 1)
+  (setq-local comment-insert-comment-function #'lean-insert-comment)
+  (setq-local comment-quote-nested nil)
+  (setq-local comment-use-syntax t)
+  (setq-local parse-sexp-ignore-comments t)
+
+  ;; Navigation:
+
+  ;; Paragraphs and filling:
+
+  ;; Font Locking:
+  (setq-local font-lock-defaults lean-font-lock-defaults)
+
+  ;; Compile:
+
+  ;; Imenu:
+
+  ;; Flymake:
+
+  ;; LSP:
+  ;; unlike most LSP servers, lake does not output anything on startup,
+  ;; so Eglot will by default wait around
+  (setq-local eglot-sync-connect nil)
+  (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose)
+  (add-hook 'eldoc-documentation-functions #'lean-infoview-goals -90 'local)
+  (add-hook 'eldoc-documentation-functions #'lean-infoview-term-goal -80 'local))
+
+;; Lean language specification requires UTF-8 encoding.
+(modify-coding-system-alist 'file "\\.lean\\'" 'utf-8)
 
 ;;;; Association:
 
