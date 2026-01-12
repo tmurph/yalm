@@ -32,8 +32,8 @@
 ;; Maintainer: Mekeor Melire <mekeor@posteo.de>
 ;; Package-Requires: ((emacs "29.1"))
 ;; SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
-;; URL: https://codeberg.org/mekeor/nael
-;; Version: 0.7.1
+;; URL: https://github.com/tmurph/yalm
+;; Version: 0.0.1
 
 ;; This is licensed under GNU General Public License (version 3 only),
 ;; see LICENSE.GPL3.  To be precise, it is licensed under Apache-2.0,
@@ -158,20 +158,20 @@ If you change this setting you will need to restart the major mode."
 
 ;;;; Font Locking:
 
-(defconst lean-declarations
+(defconst lean--declarations
   '("instance" "structure" "class" "theorem" "axiom" "lemma" "definition" "def" "constant")
   "Lean declarations.")
-(defconst lean-declarations-regexp
+(defconst lean--declarations-regexp
   (rx word-start
       (group (eval (append '(or "inductive"
                                 (group "class" (zero-or-more whitespace) "inductive"))
-                           lean-declarations)))
+                           lean--declarations)))
       word-end (zero-or-more whitespace)
       (group (zero-or-more "{" (zero-or-more (not (any "}"))) "}" (zero-or-more whitespace)))
       (zero-or-more whitespace)
       (group (zero-or-more (not (any " \t\n\r{(["))))))
 
-(defconst lean-keywords
+(defconst lean--keywords
   '("import" "prelude" "protected" "private" "noncomputable"
     "unsafe" "partial" "renaming" "hiding" "begin" "constant"
     "variable" "variables" "theorem" "example" "abbrev"
@@ -186,10 +186,10 @@ If you change this setting you will need to restart the major mode."
     "mutual" "def" "run_cmd" "declare_syntax_cat" "syntax" "macro_rules" "macro" "scoped" "elab"
     "initialize" "builtin_initialize" "register_builtin_option" "induction" "cases" "generalizing" "unif_hint" "deriving")
   "Lean keywords ending with `word' (not symbol).")
-(defconst lean-keywords-regexp
-  (rx word-start (eval (cons 'or lean-keywords)) word-end))
+(defconst lean--keywords-regexp
+  (rx word-start (eval (cons 'or lean--keywords)) word-end))
 
-(defconst lean-constants
+(defconst lean--constants
   '("#" "@" "!" "$" "->" "∼" "↔" "/" "==" "=" ":=" "<->" "/\\" "\\/" "∧" "∨"
     "≠" "<" ">" "≤" "≥" "¬" "<=" ">=" "⁻¹" "⬝" "▸" "+" "*" "-" "/" "λ"
     "→" "∃" "∀" "∘" "×" "Σ" "Π" "~" "||" "&&" "≃" "≡" "≅"
@@ -198,22 +198,22 @@ If you change this setting you will need to restart the major mode."
     "∘n" "∘f" "∘fi" "∘nf" "∘fn" "∘n1f" "∘1nf" "∘f1n" "∘fn1"
     "^c" "≃c" "≅c" "×c" "×f" "×n" "+c" "+f" "+n" "ℕ₋₂")
   "Lean constants.")
-(defconst lean-constants-regexp (regexp-opt lean-constants))
+(defconst lean--constants-regexp (regexp-opt lean--constants))
 
-(defconst lean-numerals-regexp
+(defconst lean--numerals-regexp
   (rx word-start
       (one-or-more digit) (optional (and "." (zero-or-more digit)))
       word-end))
 
-(defconst lean-warnings '("sorry") "Lean warnings.")
-(defconst lean-warnings-regexp
-  (rx word-start (eval (cons 'or lean-warnings)) word-end))
+(defconst lean--warnings '("sorry") "Lean warnings.")
+(defconst lean--warnings-regexp
+  (rx word-start (eval (cons 'or lean--warnings)) word-end))
 
-(defconst lean-debugging '("unreachable!" "panic!" "assert!" "dbg_trace") "Lean debugging.")
-(defconst lean-debugging-regexp
-  (rx word-start (eval (cons 'or lean-debugging)) word-end))
+(defconst lean--debugging '("unreachable!" "panic!" "assert!" "dbg_trace") "Lean debugging.")
+(defconst lean--debugging-regexp
+  (rx word-start (eval (cons 'or lean--debugging)) word-end))
 
-(defconst lean4-font-lock-defaults
+(defconst lean-font-lock-defaults
   `((;; attributes
      (,(rx word-start "attribute" word-end (zero-or-more whitespace)
            (group (one-or-more "[" (zero-or-more (not (any "]"))) "]"
@@ -236,12 +236,12 @@ If you change this setting you will need to restart the major mode."
                                 (not (any " \t\n\r{([,")))))
       (1 'font-lock-function-name-face))
      ;; declarations
-     (,lean-declarations-regexp (4 'font-lock-function-name-face))
+     (,lean--declarations-regexp (4 'font-lock-function-name-face))
      ;; Constants which have a keyword as subterm
      (,(rx (or "∘if")) . 'font-lock-constant-face)
      ;; Keywords
      ("\\(set_option\\)[ \t]*\\([^ \t\n]*\\)" (2 'font-lock-constant-face))
-     (,lean-keywords-regexp . 'font-lock-keyword-face)
+     (,lean--keywords-regexp . 'font-lock-keyword-face)
      (,(rx word-start (group "example") ".") (1 'font-lock-keyword-face))
      (,(rx (or "∎")) . 'font-lock-keyword-face)
      ;; Types
@@ -250,14 +250,14 @@ If you change this setting you will need to restart the major mode."
      ;; String
      ("\"[^\"]*\"" . 'font-lock-string-face)
      ;; Debugging builtins
-     (,lean-debugging-regexp . 'font-lock-warning-face)
+     (,lean--debugging-regexp . 'font-lock-warning-face)
      ;; ;; Constants
-     (,lean-constants-regexp . 'font-lock-constant-face)
-     (,lean-numerals-regexp . 'font-lock-constant-face)
+     (,lean--constants-regexp . 'font-lock-constant-face)
+     (,lean--numerals-regexp . 'font-lock-constant-face)
      ;; place holder
      (,(rx symbol-start "_" symbol-end) . 'font-lock-preprocessor-face)
      ;; warnings
-     (,lean-warnings-regexp . 'font-lock-warning-face)
+     (,lean--warnings-regexp . 'font-lock-warning-face)
      ;; escaped identifiers
      (,(rx (and (group "«") (group (one-or-more (not (any "»")))) (group "»")))
       (1 font-lock-comment-face t)
@@ -357,7 +357,7 @@ position of the comment."
                   ;; is the following line a declaration?
                   (skip-chars-forward " \t\n")
                   (forward-line 1)
-                  (if (looking-at-p lean-declarations-regexp)
+                  (if (looking-at-p lean--declarations-regexp)
                       lean--declaration-comment-region-alist
                     lean--section-comment-region-alist))))))))
 
@@ -368,7 +368,7 @@ position of the comment."
            ;; top level
            lean--section-comment-region-alist)
       (and (save-excursion (forward-line 1)
-                           (looking-at-p lean-declarations-regexp))
+                           (looking-at-p lean--declarations-regexp))
            lean--declaration-comment-region-alist)
       lean--line-comment-region-alist))
 
@@ -508,7 +508,8 @@ through various block comment styles if called repeatedly."
 ;;;; Mode:
 
 (defvar-keymap lean-mode-map
-  "<remap> <display-local-help>" #'eldoc-doc-buffer)
+  "<remap> <display-local-help>" #'eldoc-doc-buffer
+  "<remap> <comment-dwim>" #'lean-comment-dwim)
 
 ;;;###autoload
 (define-derived-mode lean-mode prog-mode "Lean"
@@ -534,7 +535,7 @@ through various block comment styles if called repeatedly."
   ;; Paragraphs and filling:
 
   ;; Font Locking:
-  (setq-local font-lock-defaults lean4-font-lock-defaults)
+  (setq-local font-lock-defaults lean-font-lock-defaults)
 
   ;; Compile:
 
