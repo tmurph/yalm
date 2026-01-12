@@ -50,10 +50,13 @@
 
 ;;; Code:
 
-(require 'jsonrpc)
+(require 'eglot)
 (require 'project)
 (require 'rx)
 (require 'seq)
+
+(require 'lean-infoview)
+(require 'lean-lsp)
 
 ;;;; Autoloads and Forward Declarations
 
@@ -69,7 +72,7 @@
   :group 'languages)
 
 (defcustom lean-use-treesitter nil
-  "Whether to use experimental treesitter suppor.  Requires an installation
+  "Whether to use experimental treesitter support.  Requires an installation
 of treesitter and the lean grammar.
 
 Currently only supports (partial) font locking.
@@ -81,6 +84,12 @@ If you change this setting you will need to restart the major mode."
          (if val
              (add-hook 'lean-mode-hook #'lean-ts-setup)
            (remove-hook 'lean-mode-hook #'lean-ts-setup))))
+
+(defcustom lean-use-lsp-mode nil
+  "Whether to use experimental lsp-mode support.
+
+Currently so experimental that we don't support anything."
+  :type 'boolean)
 
 ;;;; Syntax:
 
@@ -264,7 +273,14 @@ If you change this setting you will need to restart the major mode."
       (2 nil t)
       (3 font-lock-comment-face t)))))
 
-;;;; Utility Functions
+;;;; Infoview:
+
+;;; Inspired by nael, we hook into the eldoc mechanisms.  Inspired by
+;;; lean4-mode, we use a dedicated buffer for fontification etc.  From
+;;; my own work, seems best to use generics so we can swap backends
+;;; (eglot / lsp) as the user prefers.
+
+
 
 ;;;; Comments:
 
@@ -542,7 +558,11 @@ through various block comment styles if called repeatedly."
   ;; Imenu:
 
   ;; Flymake:
-  )
+
+  ;; LSP:
+  ;; unlike most LSP servers, lake does not output anything on startup,
+  ;; so Eglot will by default wait around
+  (setq-local eglot-sync-connect nil))
 
 ;; Lean language specification requires UTF-8 encoding.
 (modify-coding-system-alist 'file "\\.lean\\'" 'utf-8)
@@ -552,6 +572,8 @@ through various block comment styles if called repeatedly."
 ;;;###autoload
 (add-to-list 'auto-mode-alist
              (cons "\\.lean\\'" 'lean-mode))
+
+(add-to-list 'eglot-server-programs '(lean-mode "lake" "serve"))
 
 (with-eval-after-load 'org-src
   (add-to-list 'org-src-lang-modes
