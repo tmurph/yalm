@@ -55,7 +55,7 @@
 (require 'rx)
 (require 'seq)
 (require 'lean-font-lock)
-(require 'lean-treesitter)
+(require 'lean-ts)
 
 ;; forward declarations
 (defvar lsp-managed-mode-hook)
@@ -69,11 +69,18 @@
   :group 'languages)
 
 (defcustom lean-use-treesitter nil
-  "Whether to use experimental font lock engine.  Requires an installation
+  "Whether to use experimental treesitter suppor.  Requires an installation
 of treesitter and the lean grammar.
 
+Currently only supports (partial) font locking.
+
 If you change this setting you will need to restart the major mode."
-  :type 'boolean)
+  :type 'boolean
+  :set (lambda (sym val)
+         (set-default sym val)
+         (if val
+             (add-hook 'lean-mode-hook #'lean-ts-setup)
+           (remove-hook 'lean-mode-hook #'lean-ts-setup))))
 
 ;;;; Utility Functions
 

@@ -1,4 +1,4 @@
-;;; lean-treesitter.el --- Treesitter font lockinkg for lean-mode -*- lexical-binding: t -*-
+;;; lean-ts.el --- Treesitter setup for lean-mode -*- lexical-binding: t -*-
 
 ;; Copyright © 2026 Trevor Murphy
 
@@ -8,8 +8,7 @@
 
 ;;; Commentary:
 
-;; This library defines settings for treesitter.  This is incompatible
-;; with `lean-font-lock'.
+;; This library defines settings for experimental treesitter support.
 
 ;;; Code:
 
@@ -26,5 +25,12 @@
      @font-lock-doc-face))
   "The tree-sitter font lock settings for lean.")
 
-(provide 'lean-treesitter)
-;;; lean-treesitter.el ends here
+(defun lean-ts-setup ()
+  (setq-local treesit-font-lock-settings lean-ts-font-lock-settings)
+  (setq-local treesit-font-lock-feature-list '((comment)))
+
+  (setq-local treesit-primary-parser (treesit-parser-create 'lean))
+  (treesit-major-mode-setup))
+
+(provide 'lean-ts)
+;;; lean-ts.el ends here
