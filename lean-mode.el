@@ -54,13 +54,14 @@
 (require 'project)
 (require 'rx)
 (require 'seq)
-(require 'lean-ts)
 
-;; forward declarations
-(defvar lsp-managed-mode-hook)
-(declare-function flymake-goto-next-error "flymake"
-                  (&optional n filter interactive))
-(declare-function lsp "lsp-mode" (&optional arg))
+;;;; Autoloads and Forward Declarations
+
+(autoload 'lean-ts-setup "lean-ts")
+
+;;; Internal Variables
+
+;;;; Customize Interface
 
 (defgroup lean nil
   "Major mode for Lean4 programming language and theorem prover."
@@ -80,8 +81,6 @@ If you change this setting you will need to restart the major mode."
          (if val
              (add-hook 'lean-mode-hook #'lean-ts-setup)
            (remove-hook 'lean-mode-hook #'lean-ts-setup))))
-
-;;; Internal Variables
 
 ;;;; Syntax:
 

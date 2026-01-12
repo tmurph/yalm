@@ -25,6 +25,7 @@
      @font-lock-doc-face))
   "The tree-sitter font lock settings for lean.")
 
+;;;###autoload
 (defun lean-ts-setup ()
   (setq-local treesit-font-lock-settings lean-ts-font-lock-settings)
   (setq-local treesit-font-lock-feature-list '((comment)))
