@@ -421,14 +421,14 @@ through various block comment styles if called repeatedly."
     ;; punt on region-specific logic for now
     (comment-dwim arg))
    ((not (lean--in-comment-p))
-    (lean--comment-dwim-with-alist (lean--comment-insert-alist)))
+    (lean--comment-dwim-with-alist (lean--comment-insert-alist) arg))
    ((lean--comment-replace-alist)       ; cond-let when available
     (let ((alist (lean--comment-replace-alist)))
       (comment-beginning)
       (comment-kill nil)
-      (lean--comment-dwim-with-alist alist)))
+      (lean--comment-dwim-with-alist alist arg)))
    (t
-    (lean--comment-dwim-with-alist (lean--comment-current-alist)))))
+    (lean--comment-dwim-with-alist (lean--comment-current-alist) arg))))
 
 ;;; NOTE: this is erroneously called from `commend-indent' when we're
 ;;; inside a block comment, so be ready for that case.
