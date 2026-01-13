@@ -6,8 +6,11 @@
 ;; see LICENSE.GPL3.  To be precise, it is licensed under Apache-2.0,
 ;; see LICENSE.APACHE2, and sublicensed under GPL3.
 
-(load "lean-input")
+(defvar lean-input--inhibit-make)
+(let ((lean-input--inhibit-make t))
+  (load "lean-input"))
 
+(require 'ert-x)
 (require 'buttercup)
 
 (describe "`lean-input--user-translations'"
@@ -18,9 +21,25 @@
       (expect (lean-input--user-translations) :to-equal
               '(("key" . ["trans1" "trans2" "trans3"]))))))
 
-(describe "`lean-input--translations'"
+(defmacro describe-with-two-jsons (description &rest body)
+  (declare (indent defun))
+  `(describe ,description
+     (describe "with `json-parse-buffer'"
+       (assume (fboundp 'json-parse-buffer) "`json-parse-buffer' unavailable ... skipping")
+       ,@body)
+     (describe "with `json-read'"
+       (before-each (spy-on 'fboundp :and-return-value nil))
+       ,@body)))
 
-  (it "handles the expected format"))
+(describe-with-two-jsons "`lean-input--translations'"
+
+  (it "handles the expected format"
+    (let ((lean-input-translations-file (ert-resource-file "basic.json")))
+      (expect (lean-input--translations) :to-equal
+              '(("number" ?α)
+                ("char-string" ?β)
+                ("string" . ["trans"])
+                ("array" . ["trans" "rights"]))))))
 
 (provide 'lean-input-test)
 ;;; lean-input-test.el ends here

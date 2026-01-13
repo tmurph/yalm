@@ -68,21 +68,11 @@ from other input methods."
   :type '(repeat (cons (string :tag "Key sequence")
                        (repeat :tag "Translations" string))))
 
-;;;; Package Def
+;;; Internal variables and functions
 
-;; We define the quail package at the toplevel so that it is evaluated
-;; at load time.
-
-(let ((guidance t)
-      (maximum-shortest t))
-  (quail-define-package
-   "Lean" "UTF-8" "∏" guidance
-   "Lean input method.
-These characters are drawn largely from the TeX input method, with
-modifications to better support editing Lean programs."
-   nil nil nil nil nil nil maximum-shortest))
-
-;;;; Utility Functions
+(defvar lean-input--inhibit-make nil
+  "For debugging.  If non-nil, loading the library will not automatically
+create the input method.")
 
 ;;; TODO: error handling, anyone?
 (defun lean-input--user-translations ()
@@ -106,9 +96,9 @@ modifications to better support editing Lean programs."
              when (and (stringp v) (length= v 1))
              collect (list k (string-to-char v))
              when (and (stringp v) (length> v 1))
-             collect (list k (vector v))
+             collect (cons k (vector v))
              when (vectorp v)
-             collect (list k v))))
+             collect (cons k v))))
 
 (defun lean-input--parents ())
 
@@ -122,19 +112,29 @@ modifications to better support editing Lean programs."
     ;; (quail-define-rules (nreverse newrules))
     ))
 
-;;;; Rule Definitions
+(defun make-lean-input ()
+  ;; do everything in a temp buffer so any auto-activation of the quail
+  ;; package happens away from user activity
+  (with-temp-buffer
+    (let ((guidance t)
+          (maximum-shortest t))
+      (quail-define-package
+       "Lean" "UTF-8" "∏" guidance
+       "Lean input method.
+These characters are drawn largely from the TeX input method, with
+modifications to better support editing Lean programs."
+       nil nil nil nil nil nil maximum-shortest))
 
-(lean-input--define-rules (lean-input--user-translations))
-;; (lean-input--define-rules (lean-input--translations))
-(lean-input--define-rules (lean-input--parents))
-
+    (lean-input--define-rules (lean-input--user-translations))
+    (lean-input--define-rules (lean-input--translations))
+    (lean-input--define-rules (lean-input--parents))))
 
 ;; Inspecting and modifying translation maps
 
-;; Setting up the input method
+(unless lean-input--inhibit-make
+  (make-lean-input))
 
-;;; Do not use `provide' here, because we don't want this file loaded by
-;;; the user (it would activate the input method).  Instead add this
-;;; library as a prereq to the appropriate `register-input-method'.
+;;; TODO: Instead of including a provide, add this library as a prereq
+;;; to an appropriate `register-input-method'.
 
 ;;; lean-input.el ends here
