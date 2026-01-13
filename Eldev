@@ -7,3 +7,6 @@
 (eldev-add-extra-dependencies 'test 'assess)
 
 (eldev-use-plugin 'autoloads)
+
+(setf eldev-files-to-package `(:or ,eldev-files-to-package
+                                   "./data"))
