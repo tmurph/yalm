@@ -18,5 +18,9 @@
       (expect (lean-input--user-translations) :to-equal
               '(("key" . ["trans1" "trans2" "trans3"]))))))
 
+(describe "`lean-input--translations'"
+
+  (it "handles the expected format"))
+
 (provide 'lean-input-test)
 ;;; lean-input-test.el ends here

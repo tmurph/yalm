@@ -40,11 +40,20 @@ translations using `lean-input-show-translations'."
   :group 'lean
   :group 'leim)
 
-(defcustom lean-input-data-directory
-  (expand-file-name "data/" (file-name-directory (or load-file-name (buffer-file-name))))
-  "Directory in which abbreviations.json resides."
+(defcustom lean-input-translations-file
+  (expand-file-name "data/translations.json"
+                    (file-name-directory (or load-file-name (buffer-file-name))))
+  "A file containing translations specific to the Lean input method.
+The file must parse as a valid JSON object, which will be interpreted as
+a hashtable of KEY-SEQUENCE-STRING: TRANSLATION pairs.
+
+TRANSLATION can be:
+- a number (interpreted as a unicode code point)
+- a string of length 1 (interpreted as a char)
+- a string of length >1 (interpreted as a translation string)
+- an array of any of the previous"
   :group 'lean-input
-  :type 'directory)
+  :type 'file)
 
 (defcustom lean-input-user-translations nil
   "A list of translations specific to the Lean input method.
@@ -75,12 +84,31 @@ modifications to better support editing Lean programs."
 
 ;;;; Utility Functions
 
+;;; TODO: error handling, anyone?
 (defun lean-input--user-translations ()
   "Process `lean-input-user-translations' to quail rules."
   (cl-loop for (key . trans) in lean-input-user-translations
            collect (cons key (vconcat trans))))
 
-(defun lean-input--abbreviations ())
+(defun lean-input--translations ()
+  "Process `lean-input-translations-file' to quail rules."
+  (let ((ht (with-temp-buffer
+              (insert-file-contents lean-input-translations-file)
+              (if (fboundp 'json-parse-buffer)
+                  (json-parse-buffer :object-type 'hash-table)
+                (require 'json)
+                (let ((json-object-type 'hash-table))
+                  (json-read))))))
+    (cl-loop for k being the hash-keys of ht
+             using (hash-values v)
+             when (characterp v)
+             collect (list k v)
+             when (and (stringp v) (length= v 1))
+             collect (list k (string-to-char v))
+             when (and (stringp v) (length> v 1))
+             collect (list k (vector v))
+             when (vectorp v)
+             collect (list k v))))
 
 (defun lean-input--parents ())
 
@@ -97,7 +125,7 @@ modifications to better support editing Lean programs."
 ;;;; Rule Definitions
 
 (lean-input--define-rules (lean-input--user-translations))
-(lean-input--define-rules (lean-input--abbreviations))
+;; (lean-input--define-rules (lean-input--translations))
 (lean-input--define-rules (lean-input--parents))
 
 
