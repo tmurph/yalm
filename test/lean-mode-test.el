@@ -8,9 +8,6 @@
 
 (require 'lean-mode)
 
-(require 'ert-x)
-
-(require 'assess)
 (require 'buttercup)
 
 (defun insert-and-set-point (&rest lines)
@@ -22,17 +19,35 @@ positioned where it was."
                  (insert (mapconcat #'identity lines "\n"))
                  (point))))
     (when (re-search-forward "|" limit 'move)
-      (backward-delete-char))))
+      (delete-char -1))))
 
 (describe "`lean-comment-dwim'"
-  :var (initial expected)
 
   (it "inserts a plain comment"
-    (ert-with-test-buffer (:name "foo")
-      (lean-mode)
-      (insert-and-set-point "#check 2 + 2")
-      (call-interactively #'lean-comment-dwim)
-      (should (string= (buffer-string) "#check 2 + 2			-- ")))))
+    (with-temp-buffer
+      (let ((indent-tabs-mode nil))
+        (lean-mode)
+        (insert-and-set-point "#check 2 + 2")
+        (call-interactively #'lean-comment-dwim)
+        (should (string= (buffer-string) "#check 2 + 2                    -- ")))))
+
+  (it "inserts a plain comment at the comment column"
+    (with-temp-buffer
+      (let ((indent-tabs-mode nil)
+            (comment-column 20))
+        (lean-mode)
+        (insert-and-set-point "#check 2 + 2")
+        (call-interactively #'lean-comment-dwim)
+        (should (string= (buffer-string) "#check 2 + 2        -- ")))))
+
+  (it "inserts a plain comment from within text"
+    (with-temp-buffer
+      (let ((indent-tabs-mode nil)
+            (comment-column 20))
+        (lean-mode)
+        (insert-and-set-point "#check| 2 + 2")
+        (call-interactively #'lean-comment-dwim)
+        (should (string= (buffer-string) "#check 2 + 2        -- "))))))
 
 
 (provide 'lean-mode-test)

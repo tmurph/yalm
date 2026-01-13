@@ -456,10 +456,11 @@ through various block comment styles if called repeatedly."
     ;; `comment-indent' called because it can't recognize block comments
     nil)
    (t
+    (delete-trailing-whitespace (line-beginning-position) (line-end-position))
     (end-of-line)
-    (unless (looking-back "[[:blank:]]" (1- (point)))
-      (insert " "))
-    (insert "-- "))))
+    (save-excursion (insert "-- "))
+    (comment-indent)
+    (end-of-line))))
 
 ;;;; Indentation
 
