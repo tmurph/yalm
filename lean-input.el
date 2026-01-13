@@ -74,6 +74,19 @@ from other input methods."
   "For debugging.  If non-nil, loading the library will not automatically
 create the input method.")
 
+(defun lean-input--get-translations (qp)
+  "Return all translations from the Quail package QP.
+Result is a list of pairs (KEY-SEQUENCE . TRANSLATION) that contains all
+translations from QP except for those corresponding to ASCII."
+  (with-temp-buffer
+    ;; ensure QP is loaded
+    (activate-input-method qp)
+    (unless (quail-package qp)
+      (error "%s is not a Quail package" qp))
+    (let ((decode-map (list 'decode-map)))
+      (quail-build-decode-map (list (quail-map)) "" decode-map 0)
+      (cdr decode-map))))
+
 ;;; TODO: error handling, anyone?
 (defun lean-input--user-translations ()
   "Process `lean-input-user-translations' to quail rules."
@@ -100,7 +113,16 @@ create the input method.")
              when (vectorp v)
              collect (cons k v))))
 
-(defun lean-input--parents ())
+(defun lean-input--tex-translations ()
+  (let ((ignored-cmds '("\\geq" "\\leq" "\\bullet" "\\qed" "\\par")))
+    (cl-loop for trans in (lean-input--get-translations "TeX")
+             for key = (car trans)
+             when (or (and (string-prefix-p "^" key)
+                           (not (string= key "^o")))
+                      (string-prefix-p "_" key)
+                      (and (string-prefix-p "\\" key)
+                           (not (member key ignored-cmds))))
+             collect trans)))
 
 (defun lean-input--define-rules (rules)
   (let ((newrules ()))
@@ -127,7 +149,7 @@ modifications to better support editing Lean programs."
 
     (lean-input--define-rules (lean-input--user-translations))
     (lean-input--define-rules (lean-input--translations))
-    (lean-input--define-rules (lean-input--parents))))
+    (lean-input--define-rules (lean-input--tex-translations))))
 
 ;; Inspecting and modifying translation maps
 

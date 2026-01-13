@@ -41,5 +41,12 @@
                 ("string" . ["trans"])
                 ("array" . ["trans" "rights"]))))))
 
+(describe "`lean-input--tex-translations'"
+
+  (it "returns the expected format"
+    (let* ((trans (lean-input--tex-translations))
+           (candidate "\\pounds"))
+      (expect (assoc candidate trans) :to-equal '("\\pounds" . ?£)))))
+
 (provide 'lean-input-test)
 ;;; lean-input-test.el ends here
