@@ -249,7 +249,9 @@ Currently so experimental that we don't support anything."
                                 (not (any " \t\n\r{([,")))))
       (1 'font-lock-function-name-face))
      ;; declarations
-     (,lean--declarations-regexp (4 'font-lock-function-name-face))
+     (,lean--declarations-regexp
+      (1 'font-lock-keyword-face)
+      (4 'font-lock-function-name-face))
      ;; Constants which have a keyword as subterm
      (,(rx (or "∘if")) . 'font-lock-constant-face)
      ;; Keywords
