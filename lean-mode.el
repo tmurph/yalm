@@ -632,6 +632,8 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
 \\{lean-mode-map}"
   :syntax-table lean-mode-syntax-table
 
+  (set-input-method "Lean")
+
   ;; Comments:
   (setq-local comment-start "-- ")
   (setq-local comment-start-skip "\\(?:--\\|/-!?\\)[[:space:]]*")
@@ -665,14 +667,19 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
   (add-hook 'eldoc-documentation-functions #'lean-infoview-goals -90 'local)
   (add-hook 'eldoc-documentation-functions #'lean-infoview-term-goal -80 'local))
 
+;;;; Association:
+
 ;; Lean language specification requires UTF-8 encoding.
 (modify-coding-system-alist 'file "\\.lean\\'" 'utf-8)
-
-;;;; Association:
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist
              (cons "\\.lean\\'" 'lean-mode))
+
+(register-input-method
+ "Lean" "UTF-8" 'quail-use-package
+ "∏" "Lean input method."
+ "lean-input")
 
 (add-to-list 'eglot-server-programs '(lean-mode "lake" "serve"))
 
