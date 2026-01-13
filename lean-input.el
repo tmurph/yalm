@@ -93,7 +93,7 @@ translations from QP except for those corresponding to ASCII."
   (cl-loop for (key . trans) in lean-input-user-translations
            collect (cons key (vconcat trans))))
 
-(defun lean-input--translations ()
+(defun lean-input--lean-translations ()
   "Process `lean-input-translations-file' to quail rules."
   (let ((ht (with-temp-buffer
               (insert-file-contents lean-input-translations-file)
@@ -124,34 +124,30 @@ translations from QP except for those corresponding to ASCII."
                            (not (member key ignored-cmds))))
              collect trans)))
 
-(defun lean-input--define-rules (rules)
-  (let ((newrules ()))
-    (dolist (rule rules)
-      (pcase rule
-        (`(,_ ,(pred characterp)) (push rule newrules)) ; Normal quail rule
-        ))
-
-    ;; (quail-define-rules (nreverse newrules))
-    ))
-
 (defun make-lean-input ()
   ;; do everything in a temp buffer so any auto-activation of the quail
   ;; package happens away from user activity
   (with-temp-buffer
     (let ((guidance t)
-          (maximum-shortest t))
+          (maximum-shortest t)
+          (create-decode-map t))
       (quail-define-package
        "Lean" "UTF-8" "∏" guidance
        "Lean input method.
 These characters are drawn largely from the TeX input method, with
 modifications to better support editing Lean programs."
-       nil nil nil nil nil nil maximum-shortest))
+       nil nil nil nil nil create-decode-map maximum-shortest))
 
-    (lean-input--define-rules (lean-input--user-translations))
-    (lean-input--define-rules (lean-input--translations))
-    (lean-input--define-rules (lean-input--tex-translations))))
-
-;; Inspecting and modifying translation maps
+    ;; "Lean" is now the buffer-local active quail package
+    ;; TODO: check for dupes?  any error handling?
+    (let ((map (quail-map))
+          (decode-map (quail-decode-map)))
+      (cl-loop for (key . trans) in (lean-input--user-translations)
+               do (quail-defrule-internal key trans map t decode-map))
+      (cl-loop for (key . trans) in (lean-input--lean-translations)
+               do (quail-defrule-internal key trans map t decode-map))
+      (cl-loop for (key . trans) in (lean-input--tex-translations)
+               do (quail-defrule-internal key trans map t decode-map)))))
 
 (unless lean-input--inhibit-make
   (make-lean-input))

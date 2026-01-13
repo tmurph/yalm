@@ -31,11 +31,11 @@
        (before-each (spy-on 'fboundp :and-return-value nil))
        ,@body)))
 
-(describe-with-two-jsons "`lean-input--translations'"
+(describe-with-two-jsons "`lean-input--lean-translations'"
 
   (it "handles the expected format"
     (let ((lean-input-translations-file (ert-resource-file "basic.json")))
-      (expect (lean-input--translations) :to-equal
+      (expect (lean-input--lean-translations) :to-equal
               '(("number" ?α)
                 ("char-string" ?β)
                 ("string" . ["trans"])
