@@ -3,14 +3,15 @@ Yet Another Lean Mode
 
 # TODO
   * [ ] comment continue
-  * [ ] font-lock
+  * [x] font-lock
   * [ ] tree sitter + tests
   * [ ] indentation
   * [ ] maybe paragraph filling?
   * [ ] moving by "defun"
-  * [ ] eglot
+  * [x] eglot
   * [ ] abbrev
-  * [ ] input method
+  * [x] input method
+  * [ ] input method reverse lookup
 
 # References
 - https://github.com/lua-vr/lean-ts-mode
