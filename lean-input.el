@@ -70,9 +70,9 @@ from other input methods."
 
 ;;; Internal variables and functions
 
-(defvar lean-input--inhibit-make nil
-  "For debugging.  If non-nil, loading the library will not automatically
-create the input method.")
+(defvar lean-input--inhibit-expensive nil
+  "For tests and during debugging.  If non-nil, loading the library will
+not define rules that require expensive file reads.")
 
 (defun lean-input--get-translations (qp)
   "Return all translations from the Quail package QP.
@@ -124,8 +124,8 @@ translations from QP except for those corresponding to ASCII."
                            (not (member key ignored-cmds))))
              collect trans)))
 
-(defun make-lean-input ()
-  ;; do everything in a temp buffer so any auto-activation of the quail
+(defun make-lean-input (&optional inhibit-expensive)
+  ;; do everything in a temp buffer so the auto-activation of the quail
   ;; package happens away from user activity
   (with-temp-buffer
     (let ((guidance t)
@@ -138,21 +138,22 @@ These characters are drawn largely from the TeX input method, with
 modifications to better support editing Lean programs."
        nil nil nil nil nil create-decode-map maximum-shortest))
 
-    ;; "Lean" is now the buffer-local active quail package
     ;; TODO: check for dupes?  any error handling?
     (let ((map (quail-map))
           (decode-map (quail-decode-map)))
       (cl-loop for (key . trans) in (lean-input--user-translations)
                do (quail-defrule-internal key trans map t decode-map))
-      (cl-loop for (key . trans) in (lean-input--lean-translations)
-               do (quail-defrule-internal key trans map t decode-map))
-      (cl-loop for (key . trans) in (lean-input--tex-translations)
-               do (quail-defrule-internal key trans map t decode-map)))))
 
-(unless lean-input--inhibit-make
-  (make-lean-input))
+      (unless inhibit-expensive
+        (cl-loop for (key . trans) in (lean-input--lean-translations)
+                 do (quail-defrule-internal key trans map t decode-map))
+        (cl-loop for (key . trans) in (lean-input--tex-translations)
+                 do (quail-defrule-internal key trans map t decode-map))))))
 
-;;; TODO: Instead of including a provide, add this library as a prereq
-;;; to an appropriate `register-input-method'.
+(make-lean-input lean-input--inhibit-expensive)
+
+;;; NOTE: Don't include a `provide' here, as we don't want users loading
+;;; this library.  Instead, this library is loaded on demand by quail by
+;;; an appropriate `register-input-method' call in lean-mode.el
 
 ;;; lean-input.el ends here

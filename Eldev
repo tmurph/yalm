@@ -10,3 +10,6 @@
 
 (setf eldev-files-to-package `(:or ,eldev-files-to-package
                                    "./data"))
+
+(defvar lean-input--inhibit-expensive)
+(add-hook 'eldev-test-hook (lambda () (setq lean-input--inhibit-expensive t)))

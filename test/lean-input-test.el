@@ -6,9 +6,7 @@
 ;; see LICENSE.GPL3.  To be precise, it is licensed under Apache-2.0,
 ;; see LICENSE.APACHE2, and sublicensed under GPL3.
 
-(defvar lean-input--inhibit-make)
-(let ((lean-input--inhibit-make t))
-  (load "lean-input"))
+(load "lean-input")
 
 (require 'ert-x)
 (require 'buttercup)
