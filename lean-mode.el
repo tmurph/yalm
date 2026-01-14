@@ -33,7 +33,7 @@
 ;; Package-Requires: ((emacs "29.1"))
 ;; SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
 ;; URL: https://github.com/tmurph/yalm
-;; Version: 0.0.4
+;; Version: 0.0.5
 
 ;; This is licensed under GNU General Public License (version 3 only),
 ;; see LICENSE.GPL3.  To be precise, it is licensed under Apache-2.0,
