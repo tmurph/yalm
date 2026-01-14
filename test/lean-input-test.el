@@ -34,8 +34,8 @@
   (it "handles the expected format"
     (let ((lean-input-translations-file (ert-resource-file "basic.json")))
       (expect (lean-input--lean-translations) :to-equal
-              '(("number" ?α)
-                ("char-string" ?β)
+              '(("number" . ?α)
+                ("char-string" . ?β)
                 ("string" . ["trans"])
                 ("array" . ["trans" "rights"]))))))
 

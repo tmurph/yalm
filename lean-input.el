@@ -93,6 +93,9 @@ translations from QP except for those corresponding to ASCII."
   (cl-loop for (key . trans) in lean-input-user-translations
            collect (cons key (vconcat trans))))
 
+;;; TODO: don't include the single character ones, e.g. for A or m or 1.
+;;; Alternatively, do the old school thing and add a \\ to the beginning
+;;; of all of them.
 (defun lean-input--lean-translations ()
   "Process `lean-input-translations-file' to quail rules."
   (let ((ht (with-temp-buffer
@@ -105,9 +108,9 @@ translations from QP except for those corresponding to ASCII."
     (cl-loop for k being the hash-keys of ht
              using (hash-values v)
              when (characterp v)
-             collect (list k v)
+             collect (cons k v)
              when (and (stringp v) (length= v 1))
-             collect (list k (string-to-char v))
+             collect (cons k (string-to-char v))
              when (and (stringp v) (length> v 1))
              collect (cons k (vector v))
              when (vectorp v)
@@ -143,7 +146,6 @@ modifications to better support editing Lean programs."
           (decode-map (quail-decode-map)))
       (cl-loop for (key . trans) in (lean-input--user-translations)
                do (quail-defrule-internal key trans map t decode-map))
-
       (unless inhibit-expensive
         (cl-loop for (key . trans) in (lean-input--lean-translations)
                  do (quail-defrule-internal key trans map t decode-map))
