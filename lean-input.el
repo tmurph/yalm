@@ -98,13 +98,26 @@ translations from QP except for those corresponding to ASCII."
 ;;; of all of them.
 (defun lean-input--lean-translations ()
   "Process `lean-input-translations-file' to quail rules."
-  (let ((ht (with-temp-buffer
-              (insert-file-contents lean-input-translations-file)
-              (if (fboundp 'json-parse-buffer)
-                  (json-parse-buffer :object-type 'hash-table)
-                (require 'json)
-                (let ((json-object-type 'hash-table))
-                  (json-read))))))
+  (let ((to-prefix (rx bol (zero-or-more space) "\""
+                       (group (or
+                               ;; single characters / digits
+                               (not "\"")
+                               ;; some common abbrevs that show up in
+                               ;; plain english words
+                               "le" "em"
+                               ))
+                       "\"" (zero-or-more space) ":"))
+        ht)
+    (with-temp-buffer
+      (insert-file-contents lean-input-translations-file)
+      (while (re-search-forward to-prefix nil t)
+        (replace-match "\\\\\\\\\\1" nil nil nil 1))
+      (goto-char (point-min))
+      (setq ht (if (fboundp 'json-parse-buffer)
+                   (json-parse-buffer :object-type 'hash-table)
+                 (require 'json)
+                 (let ((json-object-type 'hash-table))
+                   (json-read)))))
     (cl-loop for k being the hash-keys of ht
              using (hash-values v)
              when (characterp v)
@@ -117,7 +130,7 @@ translations from QP except for those corresponding to ASCII."
              collect (cons k v))))
 
 (defun lean-input--tex-translations ()
-  (let ((ignored-cmds '("\\geq" "\\leq" "\\bullet" "\\qed" "\\par")))
+  (let ((ignored-cmds '("\\geq" "\\leq" "\\bullet" "\\qed" "\\par" "\\ ")))
     (cl-loop for trans in (lean-input--get-translations "TeX")
              for key = (car trans)
              when (or (and (string-prefix-p "^" key)

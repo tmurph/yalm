@@ -37,7 +37,15 @@
               '(("number" . ?α)
                 ("char-string" . ?β)
                 ("string" . ["trans"])
-                ("array" . ["trans" "rights"]))))))
+                ("array" . ["trans" "rights"])))))
+
+  (it "prefixes common language keys"
+    (let ((lean-input-translations-file (ert-resource-file "wants-prefix.json")))
+      (expect (lean-input--lean-translations) :to-equal
+              '(("\\a" . ?α)
+                ("\\1" . ?₁)
+                ("\\em" . ?—)
+                ("\\le" . ?≤))))))
 
 (describe "`lean-input--tex-translations'"
 
