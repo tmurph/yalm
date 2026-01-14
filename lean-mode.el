@@ -635,7 +635,7 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
 \\{lean-mode-map}"
   :syntax-table lean-mode-syntax-table
 
-  (set-input-method "Lean")
+  (activate-input-method "Lean")
 
   ;; Comments:
   (setq-local comment-start "-- ")
