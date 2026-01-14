@@ -51,7 +51,7 @@
 ;;; Code:
 
 (require 'eglot)
-(require 'seq)
+(require 'quail)
 
 (require 'lean-lsp)
 
@@ -625,7 +625,8 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
 
 (defvar-keymap lean-mode-map
   "<remap> <display-local-help>" #'eldoc-doc-buffer
-  "<remap> <comment-dwim>" #'lean-comment-dwim)
+  "<remap> <comment-dwim>" #'lean-comment-dwim
+  "C-c C-k" #'quail-show-key)
 
 ;;;###autoload
 (define-derived-mode lean-mode prog-mode "Lean"
