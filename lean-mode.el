@@ -51,6 +51,7 @@
 ;;; Code:
 
 (require 'eglot)
+(require 'newcomment)
 (require 'quail)
 
 (require 'lean-lsp)
@@ -297,6 +298,7 @@ Currently so experimental that we don't support anything."
 
 ;;;; Comments:
 
+;;; TODO: check which of these need a `comment-continue'
 (defconst lean--line-comment-region-alist
   '((comment-start . "-- ") (comment-end . "") (comment-style . indent))
   "Make `comment-region' wrap a region with line comments.")
@@ -306,7 +308,8 @@ Currently so experimental that we don't support anything."
   "Make `comment-region' wrap a region with a block comment.")
 
 (defconst lean--section-comment-region-alist
-  '((comment-start . "/-!") (comment-end . "-/") (comment-style . extra-line))
+  '((comment-start . "/-!") (comment-end . "-/") (comment-style . extra-line)
+    (comment-continue . ""))
   "Make `comment-region' wrap a region with a module / section block comment.")
 
 (defconst lean--declaration-comment-region-alist
@@ -337,6 +340,13 @@ position of the comment."
           (t pos))))
     (let ((syn (save-excursion (syntax-ppss chkpos))))
       (and (nth 4 syn) (nth 8 syn)))))
+
+(defun lean--comment-region (beg end &optional arg)
+  "Like `comment-region-default' except we don't try to balance the width
+of `comment-start' and `comment-end'."
+  (cl-letf (((symbol-function 'comment-make-bol-ws)
+             (lambda (_len) "")))
+    (comment-region-default beg end arg)))
 
 (defun lean--comment-current-alist ()
   "Detect settings for comment at point.  Nil if no comment."
@@ -409,7 +419,9 @@ position of the comment."
   (let-alist extra-alist
     (let ((comment-start (or .comment-start comment-start))
           (comment-end (or .comment-end comment-end))
-          (comment-style (or .comment-style comment-style)))
+          (comment-style (or .comment-style comment-style))
+          (comment-continue (or .comment-continue comment-continue))
+          (comment-padding (or .comment-padding comment-padding)))
       (comment-dwim arg))))
 
 (defun lean-comment-dwim (arg)
@@ -421,7 +433,7 @@ through various block comment styles if called repeatedly."
   (cond
    ((use-region-p)
     ;; punt on region-specific logic for now
-    (comment-dwim arg))
+    (lean--comment-dwim-with-alist lean--section-comment-region-alist arg))
    ((not (lean--in-comment-p))
     (lean--comment-dwim-with-alist (lean--comment-insert-alist) arg))
    ((lean--comment-replace-alist)       ; cond-let when available
@@ -432,7 +444,7 @@ through various block comment styles if called repeatedly."
    (t
     (lean--comment-dwim-with-alist (lean--comment-current-alist) arg))))
 
-;;; NOTE: this is erroneously called from `commend-indent' when we're
+;;; NOTE: this is erroneously called from `comment-indent' when we're
 ;;; inside a block comment, so be ready for that case.
 (defun lean-insert-comment ()
   "`comment-insert-comment-function' for `lean-mode'."
@@ -648,6 +660,7 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
   (setq-local comment-quote-nested nil)
   (setq-local comment-use-syntax t)
   (setq-local parse-sexp-ignore-comments t)
+  (setq-local comment-region-function 'lean--comment-region)
 
   ;; Navigation:
 
