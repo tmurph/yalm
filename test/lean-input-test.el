@@ -34,15 +34,12 @@
   (it "handles the expected format"
     (let ((lean-input-translations-file (ert-resource-file "basic.json")))
       (expect (lean-input--lean-translations) :to-equal
-              '(("number" . ?α)
-                ("char-string" . ?β)
-                ("string" . ["trans"])
-                ("array" . ["trans" "rights"])))))
-
-  (it "prefixes common language keys"
-    (let ((lean-input-translations-file (ert-resource-file "wants-prefix.json")))
-      (expect (lean-input--lean-translations) :to-equal
-              '(("\\a" . ?α)
+              '(("\\number" . ?α)
+                ("\\char-string" . ?β)
+                ("\\string" . ["trans"])
+                ("\\array" . ["trans" "rights"])
+                ("\\\\" . ?\\)
+                ("\\a" . ?α)
                 ("\\1" . ?₁)
                 ("\\em" . ?—)
                 ("\\le" . ?≤))))))

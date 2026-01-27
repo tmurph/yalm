@@ -2,5 +2,10 @@
   "number": 945,
   "char-string": "β",
   "string": "trans",
-  "array": ["trans", "rights"]
+  "array": ["trans", "rights"],
+  "\\": "\\",
+  "a": "α",
+  "1": "₁",
+  "em": "—",
+  "le": "≤"
 }

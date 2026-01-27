@@ -93,19 +93,10 @@ translations from QP except for those corresponding to ASCII."
   (cl-loop for (key . trans) in lean-input-user-translations
            collect (cons key (vconcat trans))))
 
-;;; TODO: don't include the single character ones, e.g. for A or m or 1.
-;;; Alternatively, do the old school thing and add a \\ to the beginning
-;;; of all of them.
 (defun lean-input--lean-translations ()
   "Process `lean-input-translations-file' to quail rules."
   (let ((to-prefix (rx bol (zero-or-more space) "\""
-                       (group (or
-                               ;; single characters / digits
-                               (not "\"")
-                               ;; some common abbrevs that show up in
-                               ;; plain english words
-                               "le" "em"
-                               ))
+                       (group (one-or-more (not "\"")))
                        "\"" (zero-or-more space) ":"))
         ht)
     (with-temp-buffer
