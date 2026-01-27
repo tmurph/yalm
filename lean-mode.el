@@ -411,6 +411,9 @@ of `comment-start' and `comment-end'."
            ;; top level
            lean--section-comment-region-alist)
       (and (save-excursion (forward-line 1)
+                           (looking-at-p (rx (or "namespace" "section"))))
+           lean--section-comment-region-alist)
+      (and (save-excursion (forward-line 1)
                            (looking-at-p lean--declarations-regexp))
            lean--declaration-comment-region-alist)
       lean--line-comment-region-alist))
