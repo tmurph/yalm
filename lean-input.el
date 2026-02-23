@@ -122,14 +122,14 @@ translations from QP except for those corresponding to ASCII."
 
 (defun lean-input--tex-translations ()
   (let ((ignored-cmds '("\\geq" "\\leq" "\\bullet" "\\qed" "\\par" "\\ ")))
-    (cl-loop for trans in (lean-input--get-translations "TeX")
-             for key = (car trans)
+    (cl-loop for (key . trans) in (lean-input--get-translations "TeX")
              when (or (and (string-prefix-p "^" key)
                            (not (string= key "^o")))
-                      (string-prefix-p "_" key)
-                      (and (string-prefix-p "\\" key)
-                           (not (member key ignored-cmds))))
-             collect trans)))
+                      (string-prefix-p "_" key))
+             collect (cons (concat "\\" key) trans)
+             when (and (string-prefix-p "\\" key)
+                       (not (member key ignored-cmds)))
+             collect (cons key trans))))
 
 (defun make-lean-input (&optional inhibit-expensive)
   ;; do everything in a temp buffer so the auto-activation of the quail

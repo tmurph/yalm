@@ -49,7 +49,12 @@
   (it "returns the expected format"
     (let* ((trans (lean-input--tex-translations))
            (candidate "\\pounds"))
-      (expect (assoc candidate trans) :to-equal '("\\pounds" . ?£)))))
+      (expect (assoc candidate trans) :to-equal '("\\pounds" . ?£))))
+
+  (it "parses underscores"
+    (let* ((trans (lean-input--tex-translations))
+           (candidate "\\_0"))
+      (expect (assoc candidate trans) :to-equal '("\\_0" . ?₀)))))
 
 (provide 'lean-input-test)
 ;;; lean-input-test.el ends here
