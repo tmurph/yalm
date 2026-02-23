@@ -50,6 +50,7 @@
 
 ;;; Code:
 
+(require 'align)
 (require 'eglot)
 (require 'newcomment)
 (require 'quail)
@@ -65,6 +66,15 @@
 ;;; Internal Variables
 
 ;;;; Customize Interface
+
+(defcustom align-lean-rules-list
+  '((lean-arrow
+     (regexp . "\\(\\s-*\\)=>\\(\\s-*\\)")
+     (group  . (1 2))))
+  "Alignment rules for `lean-mode'.  See `align-rules-list' for more info."
+  :type align-rules-list-type
+  :group 'align
+  :risky t)
 
 (defgroup lean nil
   "Major mode for Lean4 programming language and theorem prover."
@@ -651,6 +661,9 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
   :syntax-table lean-mode-syntax-table
 
   (activate-input-method "Lean")
+
+  ;; Align:
+  (setq align-mode-rules-list align-lean-rules-list)
 
   ;; Comments:
   (setq-local comment-start "-- ")
