@@ -461,6 +461,19 @@ through various block comment styles if called repeatedly."
     (lean--with-comment-alist comment-alist
       (comment-dwim arg))))
 
+(defun lean-comment-indent-new-line (&optional soft)
+  "Break line at point and indent, continuing comment if within one.
+
+This is like `comment-indent-new-line', except this command will
+intelligently switch to `newline-and-indent' when writing a multi-line
+comment."
+  (interactive)
+  (if-let* ((alist (lean--comment-current-alist))
+            (style (alist-get 'comment-style alist))
+            (settings (alist-get style comment-styles))
+            (multi (nth 0 settings)))
+      (newline-and-indent)
+    (comment-indent-new-line soft)))
 
 ;;; NOTE: this is erroneously called from `comment-indent' when we're
 ;;; inside a block comment, so be ready for that case.
@@ -678,6 +691,7 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
   (setq-local comment-style 'indent)
   (setq-local comment-padding 1)
   (setq-local comment-insert-comment-function #'lean-insert-comment)
+  (setq-local comment-line-break-function #'lean-comment-indent-new-line)
   (setq-local comment-quote-nested nil)
   (setq-local comment-use-syntax t)
   (setq-local parse-sexp-ignore-comments t)
