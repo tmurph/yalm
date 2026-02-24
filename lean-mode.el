@@ -428,14 +428,15 @@ of `comment-start' and `comment-end'."
            lean--declaration-comment-region-alist)
       lean--line-comment-region-alist))
 
-(defun lean--comment-dwim-with-alist (extra-alist &optional arg)
-  (let-alist extra-alist
-    (let ((comment-start (or .comment-start comment-start))
-          (comment-end (or .comment-end comment-end))
-          (comment-style (or .comment-style comment-style))
-          (comment-continue (or .comment-continue comment-continue))
-          (comment-padding (or .comment-padding comment-padding)))
-      (comment-dwim arg))))
+(defmacro lean--with-comment-alist (alist &rest body)
+  (declare (indent 1))
+  `(let-alist ,alist
+     (let ((comment-start (or .comment-start comment-start))
+           (comment-end (or .comment-end comment-end))
+           (comment-style (or .comment-style comment-style))
+           (comment-continue (or .comment-continue comment-continue))
+           (comment-padding (or .comment-padding comment-padding)))
+       ,@body)))
 
 (defun lean-comment-dwim (arg)
   "Call the comment command you want (Do What I Mean).
@@ -443,19 +444,23 @@ of `comment-start' and `comment-end'."
 This is like `comment-dwim', except this command will also rotate
 through various block comment styles if called repeatedly."
   (interactive "*P")
-  (cond
-   ((use-region-p)
-    ;; punt on region-specific logic for now
-    (lean--comment-dwim-with-alist lean--section-comment-region-alist arg))
-   ((not (lean--in-comment-p))
-    (lean--comment-dwim-with-alist (lean--comment-insert-alist) arg))
-   ((lean--comment-replace-alist)       ; cond-let when available
-    (let ((alist (lean--comment-replace-alist)))
-      (comment-beginning)
-      (comment-kill nil)
-      (lean--comment-dwim-with-alist alist arg)))
-   (t
-    (lean--comment-dwim-with-alist (lean--comment-current-alist) arg))))
+  (let ((comment-alist
+         (cond
+          ((use-region-p)
+           ;; punt on region-specific logic for now
+           lean--section-comment-region-alist)
+          ((not (lean--in-comment-p))
+           (lean--comment-insert-alist))
+          ((lean--comment-replace-alist) ; cond-let when available
+           (let ((alist (lean--comment-replace-alist)))
+             (comment-beginning)
+             (comment-kill nil)
+             alist))
+          (t
+           (lean--comment-current-alist)))))
+    (lean--with-comment-alist comment-alist
+      (comment-dwim arg))))
+
 
 ;;; NOTE: this is erroneously called from `comment-indent' when we're
 ;;; inside a block comment, so be ready for that case.
