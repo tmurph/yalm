@@ -323,7 +323,7 @@ Currently so experimental that we don't support anything."
   "Make `comment-region' wrap a region with a module / section block comment.")
 
 (defconst lean--declaration-comment-region-alist
-  '((comment-start . "/--") (comment-end . "-/") (comment-style . extra-line))
+  '((comment-start . "/--") (comment-end . "-/") (comment-style . multi-line))
   "Make `comment-region' wrap a region with a declaration block comment.")
 
 ;;; why isn't there a builtin for this already?
