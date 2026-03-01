@@ -448,7 +448,7 @@ through various block comment styles if called repeatedly."
          (cond
           ((use-region-p)
            ;; punt on region-specific logic for now
-           lean--section-comment-region-alist)
+           lean--line-comment-region-alist)
           ((not (lean--in-comment-p))
            (lean--comment-insert-alist))
           ((lean--comment-replace-alist) ; cond-let when available
