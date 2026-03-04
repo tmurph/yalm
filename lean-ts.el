@@ -14,24 +14,21 @@
 
 (require 'treesit)
 
-(defconst lean-ts-font-lock-settings
-  (treesit-font-lock-rules
-   :default-language 'lean
+(defcustom lean-ts-basic-offset 2
+  "Offset used by tree-sitter for indentation in `lean-mode' buffers."
+  :type 'integer
+  :group 'lean)
 
-   :feature 'comment
-   `([(comment) (line_comment)]
-     @font-lock-comment-face
-     [(cmd_module_doc) (documentation)]
-     @font-lock-doc-face))
-  "The tree-sitter font lock settings for lean.")
+(defconst lean-ts-indent-rules
+  '((lean
+     (no-node parent lean-ts-basic-offset))))
 
 ;;;###autoload
 (defun lean-ts-setup ()
-  (setq-local treesit-font-lock-settings lean-ts-font-lock-settings)
-  (setq-local treesit-font-lock-feature-list '((comment)))
-
-  (setq-local treesit-primary-parser (treesit-parser-create 'lean))
-  (treesit-major-mode-setup))
+  (when (treesit-ready-p 'lean)
+    (setq-local treesit-simple-indent-rules lean-ts-indent-rules)
+    (setq-local treesit-primary-parser (treesit-parser-create 'lean))
+    (treesit-major-mode-setup)))
 
 (provide 'lean-ts)
 ;;; lean-ts.el ends here

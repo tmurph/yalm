@@ -85,15 +85,10 @@
   "Whether to use experimental treesitter support.  Requires an installation
 of treesitter and the lean grammar.
 
-Currently only supports (partial) font locking.
+Currently only supports indentation.
 
 If you change this setting you will need to restart the major mode."
-  :type 'boolean
-  :set (lambda (sym val)
-         (set-default sym val)
-         (if val
-             (add-hook 'lean-mode-hook #'lean-ts-setup)
-           (remove-hook 'lean-mode-hook #'lean-ts-setup))))
+  :type 'boolean)
 
 (defcustom lean-use-lsp-mode nil
   "Whether to use experimental lsp-mode support.
@@ -716,7 +711,10 @@ https://leanprover-community.github.io/mathlib4_docs/Lean/Data/Lsp/Extra.html#Le
   (setq-local eglot-sync-connect nil)
   (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose)
   (add-hook 'eldoc-documentation-functions #'lean-infoview-goals -90 'local)
-  (add-hook 'eldoc-documentation-functions #'lean-infoview-term-goal -80 'local))
+  (add-hook 'eldoc-documentation-functions #'lean-infoview-term-goal -80 'local)
+
+  ;; Tree-sitter (optional)
+  (when lean-use-treesitter (lean-ts-setup)))
 
 ;;;; Association:
 
