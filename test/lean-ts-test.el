@@ -24,17 +24,27 @@
 
 (describe "indentation"
 
+  (it "resets after complete command"
+    (lean-indent-test '("variable {a : ℝ}" "  |")
+                      '("variable {a : ℝ}" "")))
+
   (it "increases for declaration body"
-    (lean-indent-test '("theorem {a : ℝ} : a = a := by"
-                        "|")
-                      '("theorem {a : ℝ} : a = a := by"
-                        "  ")))
+    (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|")
+                      '("theorem {a : ℝ} : a = a := by" "  ")))
 
   (it "increases more for type signature"
-    (lean-indent-test '("theorem {a : ℝ} "
-                        "|: a = a := by")
-                      '("theorem {a : ℝ}"
-                        "    : a = a := by"))))
+    (lean-indent-test '("theorem {a : ℝ} :" "|a = a := by")
+                      '("theorem {a : ℝ} :" "    a = a := by")))
+
+  (it "increases for focus goal"
+    (lean-indent-test '("example : true ↔ true := by"
+                        "  constructor"
+                        "  · sorry"
+                        "|")
+                      '("example : true ↔ true := by"
+                        "  constructor"
+                        "  · sorry"
+                        "    "))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here
