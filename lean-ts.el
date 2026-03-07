@@ -36,11 +36,12 @@
                          (string-match-p "cdot"))))
      no-indent lean-ts-basic-offset)
     ((and (node-is "have")
-          (lambda (_ parent &rest _)
-            (thread-last "body"
-                         (treesit-node-child-by-field-name parent)
-                         (treesit-node-type)
-                         (string-match-p "tactics"))))
+          (lambda (node parent _)
+            (when-let* ((body (or (treesit-node-child-by-field-name node "body")
+                                  (treesit-node-child-by-field-name parent "body"))))
+              (thread-last body
+                           (treesit-node-type)
+                           (string-match-p "tactics")))))
      no-indent lean-ts-basic-offset)
     ((parent-is "tactics") no-indent lean-ts-basic-offset))
   "Rules for `lean-mode' indentation of a subsequent empty line.")
