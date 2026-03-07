@@ -15,36 +15,48 @@
     (let ((lean-use-treesitter t)
           (indent-tabs-mode nil))
       (lean-mode)
-      (insert-and-set-point input)
+      (lean-utils--insert-and-set-point input)
       (call-interactively #'indent-according-to-mode)
       ;; TODO: improve the failure messages here.  because test cases
       ;; typically span multiple lines, it's really tough to read or see
       ;; the differences between expected and actual
-      (should (string= (buffer-string) (concatenate-lines expected))))))
+      (should (string= (buffer-string) (lean-utils--concatenate-lines expected))))))
 
 (describe "indentation"
 
-  (it "resets after complete command"
-    (lean-indent-test '("variable {a : ℝ}" "  |")
-                      '("variable {a : ℝ}" "")))
+  (describe "on a blank line"
 
-  (it "increases for declaration body"
-    (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|")
-                      '("theorem {a : ℝ} : a = a := by" "  ")))
+    (it "resets after complete command"
+      (lean-indent-test '("variable {a : ℝ}" "  |")
+                        '("variable {a : ℝ}" "")))
 
-  (it "increases more for type signature"
-    (lean-indent-test '("theorem {a : ℝ} :" "|a = a := by")
-                      '("theorem {a : ℝ} :" "    a = a := by")))
+    (it "increases after \"by\""
+      (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|")
+                        '("theorem {a : ℝ} : a = a := by" "  ")))
 
-  (it "increases for focus goal"
-    (lean-indent-test '("example : true ↔ true := by"
-                        "  constructor"
-                        "  · sorry"
-                        "|")
-                      '("example : true ↔ true := by"
-                        "  constructor"
-                        "  · sorry"
-                        "    "))))
+    (xit "increases after nested \"by\""
+      (lean-indent-test '("example : Nat := by"
+                          "  have : Type := by"
+                          "|")
+                        '("example : Nat := by"
+                          "  have : Type := by"
+                          "    ")))
+
+    (it "increases for focus goal"
+      (lean-indent-test '("example : true ↔ true := by"
+                          "  constructor"
+                          "  · sorry"
+                          "|")
+                        '("example : true ↔ true := by"
+                          "  constructor"
+                          "  · sorry"
+                          "    "))))
+
+  (describe "in the middle of an expression"
+
+    (it "increases more for type signature"
+      (lean-indent-test '("theorem {a : ℝ} :" "|a = a := by")
+                        '("theorem {a : ℝ} :" "    a = a := by")))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here

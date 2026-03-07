@@ -1,4 +1,4 @@
-;;; utils.el --- Utilities for unit tests            -*- lexical-binding: t; -*-
+;;; lean-utils.el --- Utilities for lean-mode unit tests            -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026  Trevor Murphy
 
@@ -26,27 +26,27 @@
 
 ;;; Code:
 
-(defun concatenate-lines (lines)
+(defun lean-utils--concatenate-lines (lines)
   (mapconcat #'identity (if (listp lines) lines (list lines)) "\n"))
 
-(defun insert-and-set-point (lines)
+(defun lean-utils--insert-and-set-point (lines)
   "Insert LINES separated by newlines.  Leave point after the insert.
 
 If LINES contains a \"|\" then it will be removed and point will be
 positioned where it was."
   (let ((limit (save-excursion
-                 (insert (concatenate-lines lines))
+                 (insert (lean-utils--concatenate-lines lines))
                  (point))))
     (when (re-search-forward "|" limit 'move)
       (delete-char -1))))
 
-(defun insert-and-mark-region (lines)
+(defun lean-utils--insert-and-mark-region (lines)
   "Insert LINES separated by newlines.  Mark inserted lines.
 
 If LINES contains a balanced pair of \"|\" characters then they will be
 removed and the region between them will be marked."
   (let ((limit (save-excursion
-                 (insert (concatenate-lines lines))
+                 (insert (lean-utils--concatenate-lines lines))
                  (point)))
         beg end)
     (if (null (re-search-forward "|" limit t))
@@ -60,4 +60,5 @@ removed and the region between them will be marked."
     (goto-char beg)
     (setq mark-active t)))
 
-;;; utils.el ends here
+(provide 'lean-utils)
+;;; lean-utils.el ends here

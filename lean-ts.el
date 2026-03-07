@@ -28,15 +28,21 @@
   '(
     ((node-is "declaration") no-indent lean-ts-basic-offset)
     ((node-is "variable") no-indent 0)
-    ((and (parent-is "tactics")
-          (node-is "apply")
+    ((and (node-is "apply")
           (lambda (node &rest _)
             (thread-last "name"
                          (treesit-node-child-by-field-name node)
                          (treesit-node-type)
                          (string-match-p "cdot"))))
      no-indent lean-ts-basic-offset)
-    ((parent-is "tactics") no-indent 0))
+    ((and (node-is "have")
+          (lambda (_ parent &rest _)
+            (thread-last "body"
+                         (treesit-node-child-by-field-name parent)
+                         (treesit-node-type)
+                         (string-match-p "tactics"))))
+     no-indent lean-ts-basic-offset)
+    ((parent-is "tactics") no-indent lean-ts-basic-offset))
   "Rules for `lean-mode' indentation of a subsequent empty line.")
 
 (defconst lean-ts-indent-rules

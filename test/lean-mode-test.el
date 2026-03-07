@@ -15,9 +15,9 @@
     (let ((indent-tabs-mode nil)
           (comment-column 20))
       (lean-mode)
-      (insert-and-set-point input)
+      (lean-utils--insert-and-set-point input)
       (call-interactively #'lean-comment-dwim)
-      (should (string= (buffer-string) (concatenate-lines expected))))))
+      (should (string= (buffer-string) (lean-utils--concatenate-lines expected))))))
 
 (defun lean-comment-dwim-region-test (input expected)
   (with-temp-buffer
@@ -25,9 +25,9 @@
           (comment-column 20)
           (transient-mark-mode t))
       (lean-mode)
-      (insert-and-mark-region input)
+      (lean-utils--insert-and-mark-region input)
       (call-interactively #'lean-comment-dwim)
-      (should (string= (buffer-string) (concatenate-lines expected))))))
+      (should (string= (buffer-string) (lean-utils--concatenate-lines expected))))))
 
 (describe "`lean-comment-dwim'"
 
@@ -40,7 +40,7 @@
       (let ((indent-tabs-mode nil)
             (comment-column 35))
         (lean-mode)
-        (insert-and-set-point "#check 2 + 2")
+        (lean-utils--insert-and-set-point "#check 2 + 2")
         (call-interactively #'lean-comment-dwim)
         (should (string= (buffer-string) "#check 2 + 2                       -- ")))))
 
