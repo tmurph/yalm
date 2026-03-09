@@ -34,7 +34,7 @@
       (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|")
                         '("theorem {a : ℝ} : a = a := by" "  ")))
 
-    (xit "increases after nested \"by\""
+    (it "increases after nested \"by\""
       (lean-indent-test '("example : Nat := by"
                           "  have : Type := by"
                           "|")
@@ -42,7 +42,7 @@
                           "  have : Type := by"
                           "    ")))
 
-    (it "increases for focus goal"
+    (it "increases after focus goal"
       (lean-indent-test '("example : true ↔ true := by"
                           "  constructor"
                           "  · sorry"
@@ -54,9 +54,43 @@
 
   (describe "in the middle of an expression"
 
+    (it "resets after complete command"
+      (lean-indent-test '("variable {a : ℝ}" "  |variable {b : ℝ}")
+                        '("variable {a : ℝ}" "variable {b : ℝ}")))
+
+    (it "increases after \"by\""
+      (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|rfl")
+                        '("theorem {a : ℝ} : a = a := by" "  rfl")))
+
     (it "increases more for type signature"
       (lean-indent-test '("theorem {a : ℝ} :" "|a = a := by")
-                        '("theorem {a : ℝ} :" "    a = a := by")))))
+                        '("theorem {a : ℝ} :" "    a = a := by")))
+
+    (it "increases after nested \"by\""
+      (lean-indent-test '("example : Nat := by"
+                          "  have : Type := by"
+                          "|foo")
+                        '("example : Nat := by"
+                          "  have : Type := by"
+                          "    foo")))
+
+    (it "increases after focus goal"
+      (lean-indent-test '("example : true ↔ true := by"
+                          "  constructor"
+                          "  ·"
+                          "|done")
+                        '("example : true ↔ true := by"
+                          "  constructor"
+                          "  ·"
+                          "    done"))
+      (lean-indent-test '("example : true ↔ true := by"
+                          "  constructor"
+                          "  · "        ; significant whitespace
+                          "|done")
+                        '("example : true ↔ true := by"
+                          "  constructor"
+                          "  · "
+                          "    done")))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here
