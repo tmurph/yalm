@@ -174,7 +174,8 @@ Currently so experimental that we don't support anything."
 
 (eval-and-compile
   (defconst lean--declarations
-    '("instance" "structure" "class" "theorem" "axiom" "lemma" "definition" "def" "constant")
+    '("instance" "structure" "class" "theorem" "axiom" "lemma" "definition" "def" "constant"
+      "opaque")
     "Lean declarations."))
 (defconst lean--declarations-regexp
   (rx word-start
