@@ -17,7 +17,7 @@
     (let ((lean-input-user-translations
            '(("key" "trans1" "trans2" "trans3"))))
       (expect (lean-input--user-translations) :to-equal
-              '(("key" . ["trans1" "trans2" "trans3"]))))))
+              '(("\\key" . ["trans1" "trans2" "trans3"]))))))
 
 (defmacro describe-with-two-jsons (description &rest body)
   (declare (indent defun))
