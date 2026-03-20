@@ -62,8 +62,8 @@ All the translation strings are possible translations
 of the given key sequence; if there is more than one you can choose
 between them using the arrow keys.
 
-These translation pairs are included first, before thoseinherited
-from other input methods."
+When translating KEY, these strings will be suggested before any
+inherited from other input methods."
   :group 'lean-input
   :type '(repeat (cons (string :tag "Key sequence")
                        (repeat :tag "Translations" string))))
@@ -90,8 +90,10 @@ translations from QP except for those corresponding to ASCII."
 ;;; TODO: error handling, anyone?
 (defun lean-input--user-translations ()
   "Process `lean-input-user-translations' to quail rules."
-  (cl-loop for (key . trans) in lean-input-user-translations
-           collect (cons key (vconcat trans))))
+  (cl-loop for (str . trans) in lean-input-user-translations
+           for key = (concat "\\" str)
+           for value = (vconcat trans)
+           collect (cons key value)))
 
 (defun lean-input--lean-translations ()
   "Process `lean-input-translations-file' to quail rules."
