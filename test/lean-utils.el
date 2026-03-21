@@ -27,7 +27,7 @@
 ;;; Code:
 
 (defun lean-utils--concatenate-lines (lines)
-  (mapconcat #'identity (if (listp lines) lines (list lines)) "\n"))
+  (concat (mapconcat #'identity (if (listp lines) lines (list lines)) "\n") "\n"))
 
 (defun lean-utils--insert-and-set-point (lines)
   "Insert LINES separated by newlines.  Leave point after the insert.
@@ -37,8 +37,9 @@ positioned where it was."
   (let ((limit (save-excursion
                  (insert (lean-utils--concatenate-lines lines))
                  (point))))
-    (when (re-search-forward "|" limit 'move)
-      (delete-char -1))))
+    (if (re-search-forward "|" limit 'move)
+        (delete-char -1)
+      (backward-char 1))))
 
 (defun lean-utils--insert-and-mark-region (lines)
   "Insert LINES separated by newlines.  Mark inserted lines.

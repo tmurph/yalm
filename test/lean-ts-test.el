@@ -20,7 +20,8 @@
       ;; TODO: improve the failure messages here.  because test cases
       ;; typically span multiple lines, it's really tough to read or see
       ;; the differences between expected and actual
-      (should (string= (buffer-string) (lean-utils--concatenate-lines expected))))))
+      (expect (buffer-string) :to-equal
+              (lean-utils--concatenate-lines expected)))))
 
 (describe "indentation"
 
@@ -34,6 +35,14 @@
       (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|")
                         '("theorem {a : ℝ} : a = a := by" "  ")))
 
+    (it "remains the same in a tactics block"
+      (lean-indent-test '("theorem {a : ℝ} : a = a := by"
+                          "    intro x y"
+                          "|")
+                        '("theorem {a : ℝ} : a = a := by"
+                          "    intro x y"
+                          "    ")))
+
     (it "increases after nested \"by\""
       (lean-indent-test '("example : Nat := by"
                           "  have : Type := by"
@@ -42,29 +51,67 @@
                           "  have : Type := by"
                           "    ")))
 
-    (it "increases after focus goal"
+    (it "increases in a focus block"
       (lean-indent-test '("example : true ↔ true := by"
                           "  constructor"
-                          "  · sorry"
+                          "  · intro x y"
                           "|")
                         '("example : true ↔ true := by"
                           "  constructor"
-                          "  · sorry"
-                          "    "))))
+                          "  · intro x y"
+                          "    ")))
+
+    (it "does not increase after closing a goal"
+      (lean-indent-test '("example : true ↔ true := by"
+                          "  constructor"
+                          "  · done"
+                          "|")
+                        '("example : true ↔ true := by"
+                          "  constructor"
+                          "  · done"
+                          "  "))))
 
   (describe "in the middle of an expression"
 
     (it "resets after complete command"
-      (lean-indent-test '("variable {a : ℝ}" "  |variable {b : ℝ}")
-                        '("variable {a : ℝ}" "variable {b : ℝ}")))
+      (lean-indent-test '("variable {a : ℝ}"
+                          "  |variable {b : ℝ}")
+                        '("variable {a : ℝ}"
+                          "variable {b : ℝ}")))
 
     (it "increases after \"by\""
-      (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|rfl")
-                        '("theorem {a : ℝ} : a = a := by" "  rfl")))
+      (lean-indent-test '("theorem {a : ℝ} : a = a := by"
+                          "|rfl")
+                        '("theorem {a : ℝ} : a = a := by"
+                          "  rfl")))
 
-    (it "increases more for type signature"
-      (lean-indent-test '("theorem {a : ℝ} :" "|a = a := by")
-                        '("theorem {a : ℝ} :" "    a = a := by")))
+    (it "remains the same in a tactics block"
+      (lean-indent-test '("theorem {a : ℝ} : a = a := by"
+                          "    intro x y"
+                          "      |sorry")
+                        '("theorem {a : ℝ} : a = a := by"
+                          "    intro x y"
+                          "    sorry")))
+
+    (it "increases for proof body"
+      (lean-indent-test '("theorem {a : ℝ} : a = a :="
+                          "|by")
+                        '("theorem {a : ℝ} : a = a :="
+                          "  by")))
+
+    (it "increases more for proof header"
+      (lean-indent-test '("theorem {a : ℝ} :"
+                          "|a = a := by")
+                        '("theorem {a : ℝ} :"
+                          "    a = a := by")))
+
+    (it "correctly handles proof header and body"
+      (lean-indent-test '("theorem {a : ℝ} :"
+                          "    a = a :="
+                          "|by")
+                        '("theorem {a : ℝ} :"
+                          "    a = a :="
+                          "  by")))
 
     (it "increases after nested \"by\""
       (lean-indent-test '("example : Nat := by"
@@ -74,23 +121,27 @@
                           "  have : Type := by"
                           "    foo")))
 
-    (it "increases after focus goal"
+    (it "increases in a focus block"
       (lean-indent-test '("example : true ↔ true := by"
                           "  constructor"
-                          "  ·"
-                          "|done")
+                          "  · -- a comment keeps the block open"
+                          "  |done")
                         '("example : true ↔ true := by"
                           "  constructor"
-                          "  ·"
-                          "    done"))
+                          "  · -- a comment keeps the block open"
+                          "    done")))
+
+    (it "does not increase after closing a goal"
       (lean-indent-test '("example : true ↔ true := by"
                           "  constructor"
-                          "  · "        ; significant whitespace
-                          "|done")
+                          "  · done"
+                          "    |intro x y"
+                          "  done")
                         '("example : true ↔ true := by"
                           "  constructor"
-                          "  · "
-                          "    done")))))
+                          "  · done"
+                          "  intro x y"
+                          "  done")))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here

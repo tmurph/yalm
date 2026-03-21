@@ -17,7 +17,8 @@
       (lean-mode)
       (lean-utils--insert-and-set-point input)
       (call-interactively #'lean-comment-dwim)
-      (should (string= (buffer-string) (lean-utils--concatenate-lines expected))))))
+      (expect (buffer-string) :to-equal
+              (lean-utils--concatenate-lines expected)))))
 
 (defun lean-comment-dwim-region-test (input expected)
   (with-temp-buffer
@@ -27,7 +28,8 @@
       (lean-mode)
       (lean-utils--insert-and-mark-region input)
       (call-interactively #'lean-comment-dwim)
-      (should (string= (buffer-string) (lean-utils--concatenate-lines expected))))))
+      (expect (buffer-string) :to-equal
+              (lean-utils--concatenate-lines expected)))))
 
 (describe "`lean-comment-dwim'"
 
@@ -42,7 +44,7 @@
         (lean-mode)
         (lean-utils--insert-and-set-point "#check 2 + 2")
         (call-interactively #'lean-comment-dwim)
-        (should (string= (buffer-string) "#check 2 + 2                       -- ")))))
+        (expect (buffer-string) :to-equal "#check 2 + 2                       -- \n"))))
 
   (it "inserts a plain comment from within text"
     (lean-comment-dwim-test "#check| 2 + 2"
