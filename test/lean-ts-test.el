@@ -35,7 +35,7 @@
       (lean-indent-test '("theorem {a : ℝ} : a = a := by" "|")
                         '("theorem {a : ℝ} : a = a := by" "  ")))
 
-    (it "remains the same in a tactics block"
+    (it "remains the same within a tactics block"
       (lean-indent-test '("theorem {a : ℝ} : a = a := by"
                           "    intro x y"
                           "|")
@@ -69,7 +69,21 @@
                         '("example : true ↔ true := by"
                           "  constructor"
                           "  · done"
-                          "  "))))
+                          "  ")))
+
+    (it "increases in a proof term"
+      (lean-indent-test '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦ "
+                          "|")
+                        '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦ "
+                          "    "))
+      (lean-indent-test '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦ g"
+                          "|")
+                        '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦ g"
+                          "    "))))
 
   (describe "in the middle of an expression"
 
@@ -97,13 +111,28 @@
       (lean-indent-test '("theorem {a : ℝ} : a = a :="
                           "|by")
                         '("theorem {a : ℝ} : a = a :="
-                          "  by")))
+                          "  by"))
+      (lean-indent-test '("def Foo :="
+                          "|∀ y ∈ s, f (y - x) ≤ 0")
+                        '("def Foo :="
+                          "  ∀ y ∈ s, f (y - x) ≤ 0")))
 
     (it "increases more for proof header"
       (lean-indent-test '("theorem {a : ℝ} :"
                           "|a = a := by")
                         '("theorem {a : ℝ} :"
-                          "    a = a := by")))
+                          "    a = a := by"))
+      (lean-indent-test '("theorem {a : ℝ}"
+                          "|: a = a := by")
+                        '("theorem {a : ℝ}"
+                          "    : a = a := by"))
+      ;; (lean-indent-test '("lemma Bar : ∃ f,"
+      ;;                     "  |∃ p, f p ≠ 0 := by"
+      ;;                     "  exact trivial")
+      ;;                   '("lemma Bar : ∃ f,"
+      ;;                     "    ∃ p, f p ≠ 0 := by"
+      ;;                     "  exact trivial"))
+      )
 
     (it "correctly handles proof header and body"
       (lean-indent-test '("theorem {a : ℝ} :"
@@ -141,7 +170,21 @@
                           "  constructor"
                           "  · done"
                           "  intro x y"
-                          "  done")))))
+                          "  done")))
+
+    (it "increases inside a function application"
+      (lean-indent-test '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦"
+                          "|g x")
+                        '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦"
+                          "    g x"))
+      (lean-indent-test '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦ g"
+                          "|x")
+                        '("def Foo : ℝ → ℝ :="
+                          "  fun x ↦ g"
+                          "    x")))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here
