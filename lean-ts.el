@@ -31,11 +31,19 @@
 These are token names rather than a node taxonomy, so naming them here
 does not restate anything the grammar could tell us instead.")
 
-(defconst lean-ts-closing-tactic-query "(_closing_tactic) @tactic"
-  "Query matching tactics that unconditionally close the goal.
+(defconst lean-ts-after-closing-tactic-query
+  "(tactic_focus (_closing_tactic) . (_) @this)"
+  "Query matching a tactic that directly follows a goal-closing one.
 
-Naming the grammar's supertype keeps the member list in one place: a
-tactic added to `_closing_tactic' there is picked up here for free.")
+The `.' anchors the two as adjacent named siblings, so this says
+\"@this is the tactic right after the goal was closed\" without the
+rule having to inspect siblings itself.")
+
+(defconst lean-ts-closed-focus-block-query
+  "(tactic_focus (_closing_tactic) .) @this"
+  "Query matching a focus block whose last tactic closes the goal.
+
+The trailing `.' anchors `_closing_tactic' as the last named child.")
 
 (defun lean-ts--token-before-matches-p (pos type)
   "Non-nil if the last token before POS has a node type matching TYPE.
@@ -50,20 +58,6 @@ Whitespace and newlines before POS are skipped."
                              (treesit-node-at)
                              (treesit-node-type)
                              (or ""))))))
-
-(defun lean-ts--node-matches-query-p (node query)
-  "Non-nil if NODE is captured by QUERY.
-
-treesit offers no direct \"does this node match this pattern\"
-predicate, so run QUERY over the subtree rooted at NODE's parent,
-narrowed to NODE's own range, and look for NODE among the captures."
-  (when-let* ((node)
-              (parent (treesit-node-parent node)))
-    (seq-find (lambda (n) (treesit-node-eq n node))
-              (treesit-query-capture parent query
-                                     (treesit-node-start node)
-                                     (treesit-node-end node)
-                                     t))))
 
 (defvar lean-ts-indent-presets
   (list (cons 'first-child-is
@@ -110,21 +104,10 @@ narrowed to NODE's own range, and look for NODE among the captures."
                 (lambda (_node parent &rest _)
                   (string-match-p
                    name (or (treesit-node-field-name parent) "")))))
-        ;; The `-matches' presets take a query rather than a regexp on the
-        ;; node type, so a rule can name a supertype like `_closing_tactic'
-        ;; and let the grammar own the member list.  Queries must be
-        ;; strings: `treesit--simple-indent-eval' reads any list in a rule
-        ;; as a function application.
-        (cons 'last-child-matches
-              (lambda (query &optional named)
-                (lambda (node &rest _)
-                  (lean-ts--node-matches-query-p
-                   (treesit-node-child node -1 named) query))))
-        (cons 'prev-sibling-matches
-              (lambda (query &optional named)
-                (lambda (node &rest _)
-                  (lean-ts--node-matches-query-p
-                   (treesit-node-prev-sibling node named) query))))
+        ;; Sibling and child relations are left to treesit's own `query'
+        ;; preset: tree-sitter query anchors already say "immediately
+        ;; after" and "last child", and a query can name a supertype like
+        ;; `_closing_tactic' so the grammar keeps owning the member list.
         ;; TODO: probably take this out, it's too complicated to ship.
         ;; you can just add it through your dotemacs
         ;; (cons 'ancestor-match
@@ -176,9 +159,7 @@ indentation of Lean code.")
     ((node-is "fun") no-indent lean-ts-basic-offset)
     ;; A focus block that has closed its goal is finished; anything else
     ;; in one is still open and the next tactic belongs inside it.
-    ((and (node-is "tactic_focus")
-          (last-child-matches ,lean-ts-closing-tactic-query t))
-     no-indent 0)
+    ((query ,lean-ts-closed-focus-block-query) no-indent 0)
     ((node-is "tactic_focus") no-indent lean-ts-basic-offset)
     ;; Another tactic in the same sequence.
     ((parent-is "by") no-indent 0)
@@ -202,9 +183,7 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ((parent-is "module") column-0 0)
     ;; Focus blocks: align with the `·' after a closing tactic, otherwise
     ;; indent into the block.
-    ((and (parent-is "tactic_focus")
-          (prev-sibling-matches ,lean-ts-closing-tactic-query t))
-     parent 0)
+    ((query ,lean-ts-after-closing-tactic-query) parent 0)
     ((parent-is "tactic_focus") parent lean-ts-basic-offset)
     ;; Tactic sequences hang directly off `by', with the keyword as child
     ;; 0, so the first tactic indents from whatever line `by' ends.
