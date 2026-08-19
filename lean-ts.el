@@ -24,25 +24,46 @@
 (defun lean-ts--double-offset (&rest _)
   (* 2 lean-ts-basic-offset))
 
-(defconst lean-ts-closing-tactics
-  (rx (or "tactic_done" "tactic_sorry"))
-  "Regexp matching tactic nodes that unconditionally close the goal.")
-
 (defconst lean-ts-block-openers
   (rx bos (or "by" "do") eos)
-  "Regexp matching nodes that open a layout block.")
+  "Regexp matching the keywords that open a layout block.
 
-(defconst lean-ts-declarations
-  (rx bos (or "definition" "constant" "opaque" "axiom"
-              "structure" "inductive" "class_inductive"
-              "example" "where_decl")
-      eos)
-  "Regexp matching nodes whose contents indent from the declaration.
+These are token names rather than a node taxonomy, so naming them here
+does not restate anything the grammar could tell us instead.")
 
-This is the grammar's `_declaration' supertype, which treesit does not
-expose to indent rules, plus `example' and `where_decl'.  Anchored
-because `structure' would otherwise also match `structure_field' and
-`structure_instance'.")
+(defconst lean-ts-closing-tactic-query "(_closing_tactic) @tactic"
+  "Query matching tactics that unconditionally close the goal.
+
+Naming the grammar's supertype keeps the member list in one place: a
+tactic added to `_closing_tactic' there is picked up here for free.")
+
+(defun lean-ts--token-before-matches-p (pos type)
+  "Non-nil if the last token before POS has a node type matching TYPE.
+Whitespace and newlines before POS are skipped."
+  (save-excursion
+    (goto-char pos)
+    (skip-chars-backward " \t\n")
+    (and (> (point) (point-min))
+         (string-match-p
+          type (thread-first (point)
+                             (1-)
+                             (treesit-node-at)
+                             (treesit-node-type)
+                             (or ""))))))
+
+(defun lean-ts--node-matches-query-p (node query)
+  "Non-nil if NODE is captured by QUERY.
+
+treesit offers no direct \"does this node match this pattern\"
+predicate, so run QUERY over the subtree rooted at NODE's parent,
+narrowed to NODE's own range, and look for NODE among the captures."
+  (when-let* ((node)
+              (parent (treesit-node-parent node)))
+    (seq-find (lambda (n) (treesit-node-eq n node))
+              (treesit-query-capture parent query
+                                     (treesit-node-start node)
+                                     (treesit-node-end node)
+                                     t))))
 
 (defvar lean-ts-indent-presets
   (list (cons 'first-child-is
@@ -61,40 +82,49 @@ because `structure' would otherwise also match `structure_field' and
                                       (treesit-node-child n named)
                                       (treesit-node-type)
                                       (or ""))))))
-        ;; Takes no argument, so it is used bare like `catch-all'.  Looks
-        ;; at the last token of the line rather than its first node: a
-        ;; block opener still waiting for its body is the one thing the
-        ;; node at BOL cannot tell you, because a whole declaration and a
-        ;; declaration ending in a bare `by' have the same shape there.
-        (cons 'ends-with-empty-block
-              (lambda (_node _parent bol &rest _)
-                (save-excursion
-                  (goto-char bol)
-                  (end-of-line)
-                  (skip-chars-backward " \t")
-                  (when (> (point) (point-min))
-                    (let ((opener (treesit-node-parent
-                                   (treesit-node-at (1- (point))))))
-                      (and opener
-                           (string-match-p lean-ts-block-openers
-                                           (treesit-node-type opener))
-                           (= 1 (treesit-node-child-count opener))))))))
-        (cons 'last-child-is
-              (lambda (type &optional named)
-                (lambda (node &rest _)
+        ;; The counterpart to `node-is', looking backwards instead of at
+        ;; BOL.  Indentation is really the question "given what came
+        ;; before, where does the next thing go", and the node at BOL
+        ;; cannot answer it: a finished declaration and one ending in a
+        ;; bare `by' are both `decorated_declaration' there, while the
+        ;; token before point tells them apart immediately.
+        (cons 'prev-token-is
+              (lambda (type)
+                (lambda (_node _parent bol &rest _)
+                  (lean-ts--token-before-matches-p bol type))))
+        ;; Same question asked from the other end.  `lean-ts-after-indent-rules'
+        ;; runs with BOL on the previous non-blank line, so "what precedes
+        ;; the line being indented" is that line's last token, not the one
+        ;; before its start.
+        (cons 'eol-token-is
+              (lambda (type)
+                (lambda (_node _parent bol &rest _)
+                  (lean-ts--token-before-matches-p
+                   (save-excursion (goto-char bol) (line-end-position))
+                   type))))
+        ;; Matches when NODE sits in a field of the given name in its
+        ;; parent.  `treesit's own `match' preset can test the field of
+        ;; NODE but not of PARENT.
+        (cons 'parent-field-is
+              (lambda (name)
+                (lambda (_node parent &rest _)
                   (string-match-p
-                   type (thread-first node
-                                      (treesit-node-child -1 named)
-                                      (treesit-node-type)
-                                      (or ""))))))
-        (cons 'prev-sibling-is
-              (lambda (type &optional named)
+                   name (or (treesit-node-field-name parent) "")))))
+        ;; The `-matches' presets take a query rather than a regexp on the
+        ;; node type, so a rule can name a supertype like `_closing_tactic'
+        ;; and let the grammar own the member list.  Queries must be
+        ;; strings: `treesit--simple-indent-eval' reads any list in a rule
+        ;; as a function application.
+        (cons 'last-child-matches
+              (lambda (query &optional named)
                 (lambda (node &rest _)
-                  (string-match-p
-                   type (thread-first node
-                                      (treesit-node-prev-sibling named)
-                                      (treesit-node-type)
-                                      (or ""))))))
+                  (lean-ts--node-matches-query-p
+                   (treesit-node-child node -1 named) query))))
+        (cons 'prev-sibling-matches
+              (lambda (query &optional named)
+                (lambda (node &rest _)
+                  (lean-ts--node-matches-query-p
+                   (treesit-node-prev-sibling node named) query))))
         ;; TODO: probably take this out, it's too complicated to ship.
         ;; you can just add it through your dotemacs
         ;; (cons 'ancestor-match
@@ -132,9 +162,10 @@ indentation of Lean code.")
 
 (defconst lean-ts-after-indent-rules
   `(
-    ;; The previous line opened a block and left it empty, which is the
-    ;; normal state while a proof is being written.
-    (ends-with-empty-block no-indent lean-ts-basic-offset)
+    ;; The previous line ended on the block-opening keyword itself, so
+    ;; nothing has been written in the block yet.  This is the normal state
+    ;; while a proof is being typed.
+    ((eol-token-is ,lean-ts-block-openers) no-indent lean-ts-basic-offset)
     ;; Input the parser could not make sense of at all.  Anchor on the
     ;; previous line's own indentation with `no-indent' rather than on the
     ;; tree, since an ERROR node starts at column 0 however deeply nested
@@ -146,7 +177,7 @@ indentation of Lean code.")
     ;; A focus block that has closed its goal is finished; anything else
     ;; in one is still open and the next tactic belongs inside it.
     ((and (node-is "tactic_focus")
-          (last-child-is ,lean-ts-closing-tactics t))
+          (last-child-matches ,lean-ts-closing-tactic-query t))
      no-indent 0)
     ((node-is "tactic_focus") no-indent lean-ts-basic-offset)
     ;; Another tactic in the same sequence.
@@ -172,7 +203,7 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; Focus blocks: align with the `·' after a closing tactic, otherwise
     ;; indent into the block.
     ((and (parent-is "tactic_focus")
-          (prev-sibling-is ,lean-ts-closing-tactics t))
+          (prev-sibling-matches ,lean-ts-closing-tactic-query t))
      parent 0)
     ((parent-is "tactic_focus") parent lean-ts-basic-offset)
     ;; Tactic sequences hang directly off `by', with the keyword as child
@@ -184,8 +215,14 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; Declaration bodies indent one step; anything else still inside the
     ;; declaration is a continuation of its signature, which Lean style
     ;; indents twice so it stays visually distinct from the body.
-    ((match nil ,lean-ts-declarations "body") standalone-parent lean-ts-basic-offset)
-    ((parent-is ,lean-ts-declarations) standalone-parent lean-ts--double-offset)
+    ;;
+    ;; A declaration is whatever fills the `declaration' field of a
+    ;; `decorated_declaration', which is the grammar's own list and covers
+    ;; `example' and `notation' as well as the `_declaration' supertype.
+    ((and (parent-field-is "declaration") (match nil nil "body"))
+     standalone-parent lean-ts-basic-offset)
+    ((parent-field-is "declaration") standalone-parent lean-ts--double-offset)
+    ((parent-is "where_decl") standalone-parent lean-ts-basic-offset)
     (catch-all prev-line lean-ts-basic-offset))
   "Rules for `lean-mode' indentation.")
 
