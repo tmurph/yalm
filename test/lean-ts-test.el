@@ -87,7 +87,43 @@
                           "|")
                         '("def Foo : ℝ → ℝ :="
                           "  fun x ↦ g"
-                          "    "))))
+                          "    ")))
+
+    (it "increases after \"do\""
+      (lean-indent-test '("def main : IO Unit := do"
+                          "|")
+                        '("def main : IO Unit := do"
+                          "  ")))
+
+    (it "remains the same within a do block"
+      (lean-indent-test '("def main : IO Unit := do"
+                          "  IO.println 1"
+                          "|")
+                        '("def main : IO Unit := do"
+                          "  IO.println 1"
+                          "  ")))
+
+    (it "increases after \"where\""
+      (lean-indent-test '("instance : Foo Bar where"
+                          "|")
+                        '("instance : Foo Bar where"
+                          "  ")))
+
+    (it "remains the same within a where block"
+      (lean-indent-test '("instance : Foo Bar where"
+                          "  f := 1"
+                          "|")
+                        '("instance : Foo Bar where"
+                          "  f := 1"
+                          "  ")))
+
+    (it "remains the same within a structure instance"
+      (lean-indent-test '("def p : Point := {"
+                          "  x := 1"
+                          "|")
+                        '("def p : Point := {"
+                          "  x := 1"
+                          "  "))))
 
   (describe "in the middle of an expression"
 
@@ -188,7 +224,69 @@
                           "|x")
                         '("def Foo : ℝ → ℝ :="
                           "  fun x ↦ g"
-                          "    x"))))
+                          "    x")))
+
+    (it "increases after \"do\""
+      (lean-indent-test '("def main : IO Unit := do"
+                          "|IO.println 1")
+                        '("def main : IO Unit := do"
+                          "  IO.println 1")))
+
+    (it "remains the same in a do block"
+      (lean-indent-test '("def main : IO Unit := do"
+                          "  IO.println 1"
+                          "      |IO.println 2")
+                        '("def main : IO Unit := do"
+                          "  IO.println 1"
+                          "  IO.println 2")))
+
+    ;; TODO: column 0 closes the layout block, so the parser sees a
+    ;; top-level fragment rather than an under-indented do element.
+    ;; (it "raises an under-indented do element"
+    ;;   (lean-indent-test '("def main : IO Unit := do"
+    ;;                       "  IO.println 1"
+    ;;                       "|IO.println 2")
+    ;;                     '("def main : IO Unit := do"
+    ;;                       "  IO.println 1"
+    ;;                       "  IO.println 2")))
+
+    (it "increases after \"where\""
+      (lean-indent-test '("instance : Foo Bar where"
+                          "|f := 1")
+                        '("instance : Foo Bar where"
+                          "  f := 1")))
+
+    (it "remains the same in a where block"
+      (lean-indent-test '("instance : Foo Bar where"
+                          "  f := 1"
+                          "      |g := 2")
+                        '("instance : Foo Bar where"
+                          "  f := 1"
+                          "  g := 2")))
+
+    (it "remains the same in a structure instance"
+      (lean-indent-test '("def p : Point := {"
+                          "|x := 1"
+                          "}")
+                        '("def p : Point := {"
+                          "  x := 1"
+                          "}"))
+      (lean-indent-test '("def p : Point := {"
+                          "  x := 1"
+                          "      |y := 2"
+                          "}")
+                        '("def p : Point := {"
+                          "  x := 1"
+                          "  y := 2"
+                          "}")))
+
+    (it "aligns a closing brace with its opener"
+      (lean-indent-test '("def p : Point := {"
+                          "  x := 1"
+                          "  |}")
+                        '("def p : Point := {"
+                          "  x := 1"
+                          "}"))))
 
   (describe "in a malformed expression"
 

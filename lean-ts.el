@@ -24,7 +24,7 @@
 (defun lean-ts--double-offset (&rest _)
   (* 2 lean-ts-basic-offset))
 
-(defconst lean-ts-block-openers '("by" "do")
+(defconst lean-ts-block-openers '("by" "do" "where")
   "Keywords that open a layout block.
 
 When these keywords appear at the end of a line, the next line will be
@@ -123,6 +123,9 @@ indentation of Lean code.")
     ;; nothing has been written in the block yet.  This is the normal state
     ;; while a proof is being typed.
     ((eol-token-is ,(lean-ts--block-openers)) no-indent lean-ts-basic-offset)
+    ;; Before the ERROR rules: an unclosed `{' leaves the whole declaration
+    ;; an ERROR, but the field above still says where the next one goes.
+    ((node-is "field_assignment") no-indent 0)
     ;; Input the parser could not make sense of at all.  Anchor on the
     ;; previous line's own indentation with `no-indent' rather than on the
     ;; tree, since an ERROR node starts at column 0 however deeply nested
@@ -163,8 +166,14 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; 0, so the first tactic indents from whatever line `by' ends.
     ((match nil "by" nil 1 1) standalone-parent lean-ts-basic-offset)
     ((parent-is "by") prev-sibling 0)
-    ;; A line swallowed into a tactic's arguments aligns with the tactic.
-    ((n-p-gp nil "application" "tactic_apply") standalone-parent 0)
+    ((match nil "do" nil 1 1) standalone-parent lean-ts-basic-offset)
+    ((parent-is "do") prev-sibling 0)
+    ;; A line swallowed into the arguments of the expression above it aligns
+    ;; with that expression rather than hanging off its own over-indentation.
+    ((parent-is "application") standalone-parent 0)
+    ;; A closer belongs to the line that opened it.
+    ((node-is "}") standalone-parent 0)
+    ((parent-is "structure_instance") standalone-parent lean-ts-basic-offset)
     ;; Declaration bodies indent one step; anything else still inside the
     ;; declaration is a continuation of its signature, which Lean style
     ;; indents twice so it stays visually distinct from the body.
