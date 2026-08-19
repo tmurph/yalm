@@ -24,12 +24,15 @@
 (defun lean-ts--double-offset (&rest _)
   (* 2 lean-ts-basic-offset))
 
-(defconst lean-ts-block-openers
-  (rx bos (or "by" "do") eos)
-  "Regexp matching the keywords that open a layout block.
+(defconst lean-ts-block-openers '("by" "do")
+  "Keywords that open a layout block.
 
-These are token names rather than a node taxonomy, so naming them here
-does not restate anything the grammar could tell us instead.")
+When these keywords appear at the end of a line, the next line will be
+indented enough to start a new block.")
+
+(defun lean-ts--block-openers ()
+  "Regexp matching the keywords that open a layout block."
+  (rx-to-string `(: bos (or ,@lean-ts-block-openers) eos) t))
 
 (defconst lean-ts-after-closing-tactic-query
   "(tactic_focus (_closing_tactic) . (_) @this)"
@@ -86,10 +89,10 @@ Whitespace and newlines before POS are skipped."
               (lambda (type)
                 (lambda (_node _parent bol &rest _)
                   (lean-ts--token-before-matches-p bol type))))
-        ;; Same question asked from the other end.  `lean-ts-after-indent-rules'
-        ;; runs with BOL on the previous non-blank line, so "what precedes
-        ;; the line being indented" is that line's last token, not the one
-        ;; before its start.
+        ;; Same question asked from the other end.
+        ;; `lean-ts-empty-line-indent-rules' runs with BOL on the previous
+        ;; non-blank line, so "what precedes the line being indented" is
+        ;; that line's last token, not the one before its start.
         (cons 'eol-token-is
               (lambda (type)
                 (lambda (_node _parent bol &rest _)
@@ -108,47 +111,18 @@ Whitespace and newlines before POS are skipped."
         ;; preset: tree-sitter query anchors already say "immediately
         ;; after" and "last child", and a query can name a supertype like
         ;; `_closing_tactic' so the grammar keeps owning the member list.
-        ;; TODO: probably take this out, it's too complicated to ship.
-        ;; you can just add it through your dotemacs
-        ;; (cons 'ancestor-match
-        ;;       (lambda
-        ;;         (&optional node-type parent-type node-field
-        ;;                    node-index-min node-index-max)
-        ;;         (lambda (n &rest _)
-        ;;           (treesit-parent-until
-        ;;            n
-        ;;            (lambda (node)
-        ;;              (when-let* ((parent (treesit-node-parent node)))
-        ;;                (and (pcase node-type
-        ;;                       ('nil t)
-        ;;                       ('null (null node))
-        ;;                       (_ (string-match-p
-        ;;                           node-type (or (treesit-node-type node) ""))))
-        ;;                     (or (null parent-type)
-        ;;                         (string-match-p
-        ;;                          parent-type (treesit-node-type parent)))
-        ;;                     (or (null node-field)
-        ;;                         (string-match-p
-        ;;                          node-field
-        ;;                          (or (treesit-node-field-name node) "")))
-        ;;                     (or (null node-index-min)
-        ;;                         (>= (treesit-node-index node)
-        ;;                             node-index-min))
-        ;;                     (or (null node-index-max)
-        ;;                         (<= (treesit-node-index node)
-        ;;                             node-index-max)))))))))
         )
   "A list of indent rule presets.
 
 These will be appended to `treesit-simple-indent-rules' during
 indentation of Lean code.")
 
-(defconst lean-ts-after-indent-rules
+(defconst lean-ts-empty-line-indent-rules
   `(
     ;; The previous line ended on the block-opening keyword itself, so
     ;; nothing has been written in the block yet.  This is the normal state
     ;; while a proof is being typed.
-    ((eol-token-is ,lean-ts-block-openers) no-indent lean-ts-basic-offset)
+    ((eol-token-is ,(lean-ts--block-openers)) no-indent lean-ts-basic-offset)
     ;; Input the parser could not make sense of at all.  Anchor on the
     ;; previous line's own indentation with `no-indent' rather than on the
     ;; tree, since an ERROR node starts at column 0 however deeply nested
@@ -206,7 +180,8 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
   "Rules for `lean-mode' indentation.")
 
 (defun lean-ts--empty-line-offset (_node _parent bol &rest _)
-  (let ((treesit-simple-indent-rules (list (cons 'lean lean-ts-after-indent-rules))))
+  (let ((treesit-simple-indent-rules
+         `((lean ,@lean-ts-empty-line-indent-rules))))
     (save-excursion
       (goto-char bol)
       (skip-chars-backward " \t\n")
@@ -230,7 +205,7 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
   ;; (advice-add 'treesit-indent :before #'treesit-indent-debug)
 
   (when (treesit-ready-p 'lean)
-    (setq-local treesit-simple-indent-rules (list (cons 'lean lean-ts-indent-rules)))
+    (setq-local treesit-simple-indent-rules `((lean ,@lean-ts-indent-rules)))
     (setq-local treesit-primary-parser (treesit-parser-create 'lean))
     (setq-local treesit-simple-indent-presets
                 (append (default-value 'treesit-simple-indent-presets)
