@@ -6,6 +6,10 @@
 ;; see LICENSE.GPL3.  To be precise, it is licensed under Apache-2.0,
 ;; see LICENSE.APACHE2, and sublicensed under GPL3.
 
+;; `lean-mode' must be loaded before the `lean-use-treesitter' binding
+;; below is compiled, or the `defcustom' fires inside a `let' that has
+;; already bound the name lexically and errors out.
+(require 'lean-mode)
 (require 'lean-ts)
 
 (require 'buttercup)
@@ -184,7 +188,17 @@
                           "|x")
                         '("def Foo : ℝ → ℝ :="
                           "  fun x ↦ g"
-                          "    x")))))
+                          "    x"))))
+
+  (describe "in a malformed expression"
+
+    (it "pins to the left column"
+      (lean-indent-test '("variable {a : ℝ}"
+                          "  var"
+                          "|def Foo : ℝ → ℝ := fun x ↦ g x")
+                        '("variable {a : ℝ}"
+                          "  var"
+                          "def Foo : ℝ → ℝ := fun x ↦ g x")))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here

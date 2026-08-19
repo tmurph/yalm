@@ -24,6 +24,26 @@
 (defun lean-ts--double-offset (&rest _)
   (* 2 lean-ts-basic-offset))
 
+(defconst lean-ts-closing-tactics
+  (rx (or "tactic_done" "tactic_sorry"))
+  "Regexp matching tactic nodes that unconditionally close the goal.")
+
+(defconst lean-ts-block-openers
+  (rx bos (or "by" "do") eos)
+  "Regexp matching nodes that open a layout block.")
+
+(defconst lean-ts-declarations
+  (rx bos (or "definition" "constant" "opaque" "axiom"
+              "structure" "inductive" "class_inductive"
+              "example" "where_decl")
+      eos)
+  "Regexp matching nodes whose contents indent from the declaration.
+
+This is the grammar's `_declaration' supertype, which treesit does not
+expose to indent rules, plus `example' and `where_decl'.  Anchored
+because `structure' would otherwise also match `structure_field' and
+`structure_instance'.")
+
 (defvar lean-ts-indent-presets
   (list (cons 'first-child-is
               (lambda (type &optional named)
@@ -39,6 +59,32 @@
                   (string-match-p
                    type (thread-first node
                                       (treesit-node-child n named)
+                                      (treesit-node-type)
+                                      (or ""))))))
+        ;; Takes no argument, so it is used bare like `catch-all'.  Looks
+        ;; at the last token of the line rather than its first node: a
+        ;; block opener still waiting for its body is the one thing the
+        ;; node at BOL cannot tell you, because a whole declaration and a
+        ;; declaration ending in a bare `by' have the same shape there.
+        (cons 'ends-with-empty-block
+              (lambda (_node _parent bol &rest _)
+                (save-excursion
+                  (goto-char bol)
+                  (end-of-line)
+                  (skip-chars-backward " \t")
+                  (when (> (point) (point-min))
+                    (let ((opener (treesit-node-parent
+                                   (treesit-node-at (1- (point))))))
+                      (and opener
+                           (string-match-p lean-ts-block-openers
+                                           (treesit-node-type opener))
+                           (= 1 (treesit-node-child-count opener))))))))
+        (cons 'last-child-is
+              (lambda (type &optional named)
+                (lambda (node &rest _)
+                  (string-match-p
+                   type (thread-first node
+                                      (treesit-node-child -1 named)
                                       (treesit-node-type)
                                       (or ""))))))
         (cons 'prev-sibling-is
@@ -85,45 +131,62 @@ These will be appended to `treesit-simple-indent-rules' during
 indentation of Lean code.")
 
 (defconst lean-ts-after-indent-rules
-  '(
-    ((or (node-is "declaration")
-         (parent-is "declaration"))
-     no-indent lean-ts-basic-offset)
-    ;; TODO: should these non-declaration commands get bundled into a
-    ;; generic "command" name?  like how tactics are now
-    ((node-is "variable") no-indent 0)
-    ((and (node-is "tactic")
-          (first-child-is "have"))
-     no-indent lean-ts-basic-offset)
-    ((node-is "tactic") no-indent 0)
-    ((and (node-is "focus_block")
-          (first-child-is "close\\|sorry" t))
+  `(
+    ;; The previous line opened a block and left it empty, which is the
+    ;; normal state while a proof is being written.
+    (ends-with-empty-block no-indent lean-ts-basic-offset)
+    ;; Input the parser could not make sense of at all.  Anchor on the
+    ;; previous line's own indentation with `no-indent' rather than on the
+    ;; tree, since an ERROR node starts at column 0 however deeply nested
+    ;; the real context is.
+    ((node-is "ERROR") no-indent lean-ts-basic-offset)
+    ((parent-is "ERROR") no-indent lean-ts-basic-offset)
+    ;; `fun x =>' opens a body even when the declaration itself parses.
+    ((node-is "fun") no-indent lean-ts-basic-offset)
+    ;; A focus block that has closed its goal is finished; anything else
+    ;; in one is still open and the next tactic belongs inside it.
+    ((and (node-is "tactic_focus")
+          (last-child-is ,lean-ts-closing-tactics t))
      no-indent 0)
-    ((node-is "focus_block") no-indent lean-ts-basic-offset))
+    ((node-is "tactic_focus") no-indent lean-ts-basic-offset)
+    ;; Another tactic in the same sequence.
+    ((parent-is "by") no-indent 0)
+    (catch-all no-indent 0))
   "Rules for `lean-mode' indentation of an empty line.
 
 Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
 
 (defconst lean-ts-indent-rules
-  '(
+  `(
+    ;; On a blank line treesit hands us NODE nil and PARENT the root, no
+    ;; matter what encloses point, so there is nothing in the tree to key
+    ;; on.  `lean-ts--empty-line-offset' re-asks the question about the
+    ;; previous non-blank line instead.
     (no-node column-0 lean-ts--empty-line-offset)
-    ((node-is "ERROR") column-0 lean-ts--empty-line-offset)
+    ;; Incomplete input.  The ERROR node starts at column 0 however deeply
+    ;; nested the real context is, so measure from the previous line.
+    ((node-is "ERROR") prev-line lean-ts-basic-offset)
+    ((parent-is "ERROR") prev-line lean-ts-basic-offset)
+    ;; Commands sit at the left margin.
     ((parent-is "module") column-0 0)
-    ((match nil "tactics" nil 1 1)      ; first tactic line
-     grand-parent lean-ts-basic-offset)
-    ((parent-is "tactics") prev-sibling 0)
-    ((match nil "declaration" "body\\|proof") parent lean-ts-basic-offset)
-    ((parent-is "declaration") parent lean-ts--double-offset)
-    ;; TODO: probably take this out, it's too complicated to ship.  you
-    ;; can just add it through your dotemacs
-    ;; ((ancestor-match nil "declaration" "term") standalone-parent lean-ts--double-offset)
-    ((and (parent-is "focus_block")
-          (prev-sibling-is "close\\|sorry" t))
+    ;; Focus blocks: align with the `·' after a closing tactic, otherwise
+    ;; indent into the block.
+    ((and (parent-is "tactic_focus")
+          (prev-sibling-is ,lean-ts-closing-tactics t))
      parent 0)
-    ((parent-is "focus_block") parent lean-ts-basic-offset)
-    ((or (node-is "apply")
-         (parent-is "apply"))
-     prev-line lean-ts-basic-offset))
+    ((parent-is "tactic_focus") parent lean-ts-basic-offset)
+    ;; Tactic sequences hang directly off `by', with the keyword as child
+    ;; 0, so the first tactic indents from whatever line `by' ends.
+    ((match nil "by" nil 1 1) standalone-parent lean-ts-basic-offset)
+    ((parent-is "by") prev-sibling 0)
+    ;; A line swallowed into a tactic's arguments aligns with the tactic.
+    ((n-p-gp nil "application" "tactic_apply") standalone-parent 0)
+    ;; Declaration bodies indent one step; anything else still inside the
+    ;; declaration is a continuation of its signature, which Lean style
+    ;; indents twice so it stays visually distinct from the body.
+    ((match nil ,lean-ts-declarations "body") standalone-parent lean-ts-basic-offset)
+    ((parent-is ,lean-ts-declarations) standalone-parent lean-ts--double-offset)
+    (catch-all prev-line lean-ts-basic-offset))
   "Rules for `lean-mode' indentation.")
 
 (defun lean-ts--empty-line-offset (_node _parent bol &rest _)
