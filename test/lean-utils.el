@@ -29,16 +29,19 @@
 (defun lean-utils--concatenate-lines (lines)
   (concat (mapconcat #'identity (if (listp lines) lines (list lines)) "\n") "\n"))
 
-(defun lean-utils--insert-and-set-point (lines)
+(defun lean-utils--insert-and-set-point (lines &optional marker)
   "Insert LINES separated by newlines.  Leave point after the insert.
 
-If LINES contains a \"|\" then it will be removed and point will be
-positioned where it was."
-  (let ((limit (save-excursion
+If LINES contains MARKER, which defaults to \"|\", then it will be
+removed and point will be positioned where it was.  Pass a MARKER that
+cannot occur in the inserted text: Lean spells alternation with \"|\",
+so a test whose input pattern matches needs a different one."
+  (let ((marker (or marker "|"))
+        (limit (save-excursion
                  (insert (lean-utils--concatenate-lines lines))
                  (point))))
-    (if (re-search-forward "|" limit 'move)
-        (delete-char -1)
+    (if (search-forward marker limit 'move)
+        (delete-char (- (length marker)))
       (backward-char 1))))
 
 (defun lean-utils--insert-and-mark-region (lines)
