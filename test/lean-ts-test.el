@@ -515,6 +515,14 @@ called out, rather than left for the reader to line up by eye."
                           "  let y := 2"
                           "  x + y")))
 
+    (it "increases in the value of a tactic-position \"have\""
+      (lean-indent-test '("example : True := by"
+                          "  have hBig : a b :="
+                          "‸someFunction c")
+                        '("example : True := by"
+                          "  have hBig : a b :="
+                          "    someFunction c")))
+
     (it "aligns \"else\" with its \"if\""
       (lean-indent-test '("def f (n : Nat) : Nat :="
                           "  if n = 0 then"
@@ -542,6 +550,19 @@ called out, rather than left for the reader to line up by eye."
                         '("def f : Nat :="
                           "  someFunction"
                           "    firstArg")))
+
+    (it "increases once when a tactic's argument stands alone"
+      ;; Lean's own layout rule needs the argument indented past "exact"
+      ;; to parse as the tactic's `arg' at all, rather than a sibling
+      ;; tactic or a token outside the `by' block entirely -- unlike the
+      ;; other "increases once" cases above, so this starts from an
+      ;; under-indented but still-valid column rather than column 0.
+      (lean-indent-test '("example : True := by"
+                          "  exact"
+                          "   ‸someFunction c")
+                        '("example : True := by"
+                          "  exact"
+                          "    someFunction c")))
 
     (it "aligns a list element under the first one"
       (lean-indent-test '("def xs : List Nat :="
