@@ -221,5 +221,32 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
                         lean-ts-indent-presets))
     (treesit-major-mode-setup)))
 
+;;;; Live reload
+
+;;;###autoload
+(defun lean-ts-reload ()
+  "Reload `lean-ts' from disk and refresh tree-sitter setup in live buffers.
+
+Reloading alone does not retroactively affect a buffer that already ran
+`lean-ts-setup': the buffer-local `treesit-simple-indent-rules' is a
+snapshot taken at that time, not a live reference to the defconst it was
+built from.  Re-run `lean-ts-setup' in every buffer already using it so
+the new rules take effect immediately.
+
+Meant to be run from the command line once a reviewed change lands, e.g.
+\"emacsclient -e \\='(lean-ts-reload)\\='\"."
+  (interactive)
+  (load "lean-ts")
+  (let ((n 0))
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (and (bound-and-true-p lean-use-treesitter)
+                   (derived-mode-p 'lean-mode)
+                   treesit-primary-parser
+                   (eq (treesit-parser-language treesit-primary-parser) 'lean))
+          (lean-ts-setup)
+          (setq n (1+ n)))))
+    (message "lean-ts: reloaded (%d buffer%s refreshed)" n (if (= n 1) "" "s"))))
+
 (provide 'lean-ts)
 ;;; lean-ts.el ends here
