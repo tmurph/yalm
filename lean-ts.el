@@ -51,6 +51,15 @@ The grammar nests the body of one of these inside the previous one, so
 a run of them is arbitrarily deep in the tree while Lean style keeps
 every one of them at the same column.")
 
+(defconst lean-ts-arm-nodes '("match_arm" "cases_arm")
+  "Node types for one alternative of a pattern match.
+
+`match' and the `cases' tactic share this shape: a flat run of arms
+under the keyword that introduced them.  Keying the arm rules off this
+list rather than \"match_arm\" alone keeps `cases_arm' in sync with
+whatever indentation convention is eventually settled on for arms,
+instead of drifting if only one of the two is ever updated.")
+
 (defun lean-ts--regexp (types)
   "Regexp matching exactly the node types in TYPES."
   (rx-to-string `(: bos (or ,@types) eos) t))
@@ -238,7 +247,8 @@ indentation of Lean code.")
     ;; next one goes.
     ((node-is ,(lean-ts--regexp
                 (append '("attributes" "constructor" "field_assignment"
-                          "match" "match_arm" "structure_field")
+                          "match" "cases" "structure_field")
+                        lean-ts-arm-nodes
                         lean-ts-binding-nodes)))
      no-indent 0)
     ;; Likewise, but for decoration the parser cannot place yet.
@@ -291,11 +301,11 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ((match nil ,(lean-ts--regexp '("do")) nil 1 1)
      standalone-parent lean-ts-basic-offset)
     ((parent-is ,(lean-ts--regexp '("do"))) prev-sibling 0)
-    ;; Alternation.  `match' and a pattern-matching `fun' both hold their
-    ;; arms as flat children, so every arm lines up with the keyword and
-    ;; only an arm's own body indents past it.
-    ((node-is "match_arm") standalone-parent 0)
-    ((parent-is "match_arm") standalone-parent lean-ts-basic-offset)
+    ;; Alternation.  `match', a pattern-matching `fun', and the `cases'
+    ;; tactic all hold their arms as flat children, so every arm lines up
+    ;; with the keyword and only an arm's own body indents past it.
+    ((node-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent 0)
+    ((parent-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent lean-ts-basic-offset)
     ;; The body of a `fun' that is not pattern matching.
     ((parent-is ,(lean-ts--regexp '("fun"))) standalone-parent lean-ts-basic-offset)
     ;; Fields and constructors are in the `fields' and `constructors'

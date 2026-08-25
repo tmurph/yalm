@@ -182,6 +182,22 @@ called out, rather than left for the reader to line up by eye."
                           "  | 0 => 1"
                           "  ")))
 
+    (it "remains the same within a \"cases\" tactic"
+      (lean-indent-test '("example : True := by"
+                          "  cases i with"
+                          "‸")
+                        '("example : True := by"
+                          "  cases i with"
+                          "  "))
+      (lean-indent-test '("example : True := by"
+                          "  cases i with"
+                          "  | original i => trivial"
+                          "‸")
+                        '("example : True := by"
+                          "  cases i with"
+                          "  | original i => trivial"
+                          "  ")))
+
     (it "remains the same within a run of bindings"
       (lean-indent-test '("def f : Nat :="
                           "  let x := 1"
@@ -444,6 +460,24 @@ called out, rather than left for the reader to line up by eye."
                           "  match n with"
                           "  | 0 =>"
                           "    someExpression")))
+
+    (it "aligns cases arms with the \"cases\" tactic"
+      (lean-indent-test '("example : True := by"
+                          "  cases i with"
+                          "      ‸| extra => trivial")
+                        '("example : True := by"
+                          "  cases i with"
+                          "  | extra => trivial")))
+
+    (it "increases in the body of a cases arm"
+      (lean-indent-test '("example : True := by"
+                          "  cases i with"
+                          "  | original i =>"
+                          "‸exact foo")
+                        '("example : True := by"
+                          "  cases i with"
+                          "  | original i =>"
+                          "    exact foo")))
 
     (it "increases once for a structure field"
       (lean-indent-test '("structure Point where"
