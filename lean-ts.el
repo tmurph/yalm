@@ -32,24 +32,38 @@ indented enough to start a new block.")
 
 (defconst lean-ts-hanging-nodes
   '("anonymous_constructor" "application" "array" "list" "parenthesized"
-    "structure_instance" "subtype" "tactic_config" "tuple")
+    "structure_instance" "subtype" "tactic_apply" "tactic_config" "tuple")
   "Node types whose children continue a line rather than open a block.
 
 Everything after the first child of one of these is an argument or an
 element, so it follows the Emacs convention: line up under the first one
 if that one shares a line with what it hangs from, and otherwise indent
-a single step from the line the construct starts on.")
+a single step from the line the construct starts on.  `tactic_apply' has
+no opening delimiter, but its \"tactic\" and \"arg\" fields play the same
+head/item roles as a bracketed node's opener and first element.")
 
 (defconst lean-ts-closing-delimiters '(")" "]" "}" "⟩" "⌉" "⌋")
   "Tokens that close a `lean-ts-hanging-nodes' construct.")
 
 (defconst lean-ts-binding-nodes
-  '("let" "let_mut" "let_bind" "have" "show" "suffices" "do_let")
+  '("let" "let_mut" "let_bind" "have" "show" "suffices" "do_let" "tactic_have")
   "Node types that bind a name and then continue with a body.
 
 The grammar nests the body of one of these inside the previous one, so
 a run of them is arbitrarily deep in the tree while Lean style keeps
-every one of them at the same column.")
+every one of them at the same column.  `tactic_have' is the tactic-position
+counterpart of `have' -- it has no \"body\" field of its own (a `have'
+tactic is always followed by a sibling tactic, never a nested one), so it
+only ever takes the \"value continues past the binder\" branch below.")
+
+(defconst lean-ts-arm-nodes '("match_arm" "cases_arm")
+  "Node types for one alternative of a pattern match.
+
+`match' and the `cases' tactic share this shape: a flat run of arms
+under the keyword that introduced them.  Keying the arm rules off this
+list rather than \"match_arm\" alone keeps `cases_arm' in sync with
+whatever indentation convention is eventually settled on for arms,
+instead of drifting if only one of the two is ever updated.")
 
 (defun lean-ts--regexp (types)
   "Regexp matching exactly the node types in TYPES."
@@ -116,14 +130,21 @@ the head of the call and the argument that may share its line."
   "Return a cons (HEAD . ITEM) describing how PARENT hangs.
 
 HEAD is what the construct hangs from and ITEM is the first thing that
-follows it: for an `application' the callee and its first argument, and
-for a bracketed node the opening delimiter and the first element."
-  (if (equal (treesit-node-type parent) "application")
-      (let ((inner (lean-ts--innermost-application parent)))
-        (cons (treesit-node-child-by-field-name inner "name")
-              (treesit-node-child-by-field-name inner "arguments")))
+follows it: for an `application' the callee and its first argument, for
+a `tactic_apply' the tactic and its \"arg\" field (already flat, unlike
+`application', so it needs no spine-walk to find the innermost pair),
+and for a bracketed node the opening delimiter and the first element."
+  (cond
+   ((equal (treesit-node-type parent) "application")
+    (let ((inner (lean-ts--innermost-application parent)))
+      (cons (treesit-node-child-by-field-name inner "name")
+            (treesit-node-child-by-field-name inner "arguments"))))
+   ((equal (treesit-node-type parent) "tactic_apply")
+    (cons (treesit-node-child-by-field-name parent "tactic")
+          (treesit-node-child-by-field-name parent "arg")))
+   (t
     (cons (treesit-node-child parent 0)
-          (treesit-node-child parent 1))))
+          (treesit-node-child parent 1)))))
 
 (defconst lean-ts--statement-parents
   (rx-to-string `(: bos (or "by" "do" (: "tactic_" (+ nonl))
@@ -238,7 +259,8 @@ indentation of Lean code.")
     ;; next one goes.
     ((node-is ,(lean-ts--regexp
                 (append '("attributes" "constructor" "field_assignment"
-                          "match" "match_arm" "structure_field")
+                          "match" "cases" "structure_field")
+                        lean-ts-arm-nodes
                         lean-ts-binding-nodes)))
      no-indent 0)
     ;; Likewise, but for decoration the parser cannot place yet.
@@ -291,11 +313,11 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ((match nil ,(lean-ts--regexp '("do")) nil 1 1)
      standalone-parent lean-ts-basic-offset)
     ((parent-is ,(lean-ts--regexp '("do"))) prev-sibling 0)
-    ;; Alternation.  `match' and a pattern-matching `fun' both hold their
-    ;; arms as flat children, so every arm lines up with the keyword and
-    ;; only an arm's own body indents past it.
-    ((node-is "match_arm") standalone-parent 0)
-    ((parent-is "match_arm") standalone-parent lean-ts-basic-offset)
+    ;; Alternation.  `match', a pattern-matching `fun', and the `cases'
+    ;; tactic all hold their arms as flat children, so every arm lines up
+    ;; with the keyword and only an arm's own body indents past it.
+    ((node-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent 0)
+    ((parent-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent lean-ts-basic-offset)
     ;; The body of a `fun' that is not pattern matching.
     ((parent-is ,(lean-ts--regexp '("fun"))) standalone-parent lean-ts-basic-offset)
     ;; Fields and constructors are in the `fields' and `constructors'
