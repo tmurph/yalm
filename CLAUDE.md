@@ -78,9 +78,34 @@ on the system load path instead of `~/.emacs.d/tree-sitter/`, which Trevor
 updates by hand — this caused a full session's worth of spurious test
 failures once already.
 
-Reconciling Gary's and Erica's branches back onto `feature-indent`, and
-deciding when a batch is ready for Trevor's attention, is the orchestrating
-session's job, not something either agent does itself.
+**Branch flow is one-directional: `feature-indent` only ever advances by
+pulling Erica's reviewed tip, never the other way around.** Concretely:
+
+1. Gary commits fixes on `gary/fix-indent-rules`.
+2. Erica reviews (and may amend) on `erica/review`, built on top of Gary's
+   commits.
+3. The orchestrating session fast-forwards `feature-indent` from
+   `erica/review` — never commits new indentation-rule work directly onto
+   `feature-indent` that Erica hasn't seen, and never merges Gary's branch
+   into `feature-indent` directly, skipping her review.
+4. Before Gary starts his next fix, his worktree pulls from `feature-indent`
+   (`git merge feature-indent` from `~/code/yalm-gary`) — which by step 3 is
+   always Erica's latest reviewed tip. He never builds on a base older than
+   her last review. A clean fast-forward is the expected case; if Erica
+   amended something Gary had already built on top of, the merge can
+   conflict for real. When it does, her side wins on every conflicting
+   hunk — she's the reviewed baseline, not a negotiation — and Gary adapts
+   whatever of his own work that resolution invalidates in a follow-up
+   commit.
+
+Reconciling branches and deciding when a batch is ready for Trevor's
+attention is the orchestrating session's job, not something either agent
+does itself. (One-off exception: the initial round of gaps 1–5 plus this
+infrastructure was done directly on `feature-indent` by the orchestrating
+session itself, before this worktree split existed — Gary and Erica were
+fast-forwarded to match afterward. That shouldn't recur; going forward, all
+lean-ts.el indentation-rule changes go through the Gary → Erica →
+`feature-indent` flow above.)
 
 ## Hot-reloading `lean-ts.el` into a running Emacs
 
