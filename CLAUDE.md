@@ -107,6 +107,55 @@ fast-forwarded to match afterward. That shouldn't recur; going forward, all
 lean-ts.el indentation-rule changes go through the Gary → Erica →
 `feature-indent` flow above.)
 
+## Design principle: trust the parse tree, not assumed intent
+
+When an indent rule's correctness depends on what the user "meant" rather
+than what the grammar actually produced, resolve it by checking the real
+parse tree (`treesit-node-string` / `treesit-explore-mode`), not by
+guessing. Concretely: if the tree shows a shape has only one legitimate
+reading, indent for that reading, even if some other input the user might
+have intended would want different treatment — a parser that can't
+distinguish the two is a grammar gap to report upstream (see below) or
+defer, not something an indent rule should paper over with a heuristic.
+This resolved a real case: whether an over-indented tactic continuation
+should snap back to a sibling statement's column or hang as an argument
+turned out to have a definitive answer once the tree was actually
+inspected — Lean's layout rule never gives an over-indented line a
+"new statement" reading in tactic position, so pulling back to one was
+fixing indentation for a parse shape that can't occur (see `b2ea3fb`).
+
+This only applies once real content exists to parse. A blank line (the
+user just pressed RET) has no tree yet for what they're about to type —
+`lean-ts-empty-line-indent-rules` is necessarily predictive, not
+tree-driven, and deliberately defaults to "you're starting a new
+statement" for a blank line after a tactic, independent of whatever the
+non-blank-line rules would do once real content lands there. Don't try to
+unify these two rule sets' handling of the same shape; they're answering
+different questions.
+
+## Reporting `tree-sitter-lean` grammar gaps upstream
+
+Indentation rules can only be as correct as the parse tree they key off
+of. When a gap turns out to be a missing or wrong grammar node rather
+than a missing indent rule, it belongs upstream in the `tree-sitter-lean`
+grammar project (`~/code/tree-sitter-lean`), not worked around here.
+
+That project runs its own long-lived orchestrating session as a separate
+peer Claude Code session on this machine — find it with `ListAgents` (its
+name changes across restarts, e.g. `tree-sitter-lean-c6`; look for
+whatever's currently named `tree-sitter-lean-*`) and send a report with
+`SendMessage`: a minimal repro, the actual (wrong) tree, and what a
+correct tree should look like. That session has confirmed this is its
+preferred inbox — prefer it over writing into
+`tree-sitter-lean/.claude/agent-notes/tim.md`, which is that project's
+own Tim's personal scratch file, not meant as an external inbox.
+
+The authoritative parser Eldev builds against
+(`~/.emacs.d/tree-sitter/libtree-sitter-lean.so`) is Trevor's to update by
+hand — a grammar fix landing upstream doesn't reach this repo's tests
+until he refreshes it (or explicitly says it's fine for a session to do
+so; don't assume).
+
 ## Hot-reloading `lean-ts.el` into a running Emacs
 
 `lean-ts-reload` (defined in `lean-ts.el`) picks up a landed change without
