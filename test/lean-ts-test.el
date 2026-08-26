@@ -198,6 +198,25 @@ called out, rather than left for the reader to line up by eye."
                           "  | original i => trivial"
                           "  ")))
 
+    ;; The tactic-position `match' keyword parses to the same "match"
+    ;; token as the term-level construct, so it already falls under the
+    ;; bare "match" entry above without any change there.
+    (it "remains the same within a tactic-position \"match\""
+      (lean-indent-test '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "‸")
+                        '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "  "))
+      (lean-indent-test '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "  | 0 => trivial"
+                          "‸")
+                        '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "  | 0 => trivial"
+                          "  ")))
+
     (it "remains the same within a run of bindings"
       (lean-indent-test '("def f : Nat :="
                           "  let x := 1"
@@ -488,6 +507,28 @@ called out, rather than left for the reader to line up by eye."
                         '("example : True := by"
                           "  cases i with"
                           "  | original i =>"
+                          "    exact foo")))
+
+    ;; `tactic_match_arm' is the tactic-position counterpart of
+    ;; `match_arm', new since the grammar picked up real tactic-position
+    ;; `match' support -- same flat-run-of-arms shape as `match_arm' and
+    ;; `cases_arm', so it belongs in the same `lean-ts-arm-nodes' list.
+    (it "aligns tactic-position match arms with the \"match\""
+      (lean-indent-test '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "      ‸| 0 => trivial")
+                        '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "  | 0 => trivial")))
+
+    (it "increases in the body of a tactic-position match arm"
+      (lean-indent-test '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "  | 0 =>"
+                          "‸exact foo")
+                        '("example (n : Nat) : True := by"
+                          "  match n with"
+                          "  | 0 =>"
                           "    exact foo")))
 
     (it "increases once for a structure field"

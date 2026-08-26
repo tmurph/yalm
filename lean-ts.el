@@ -56,14 +56,15 @@ counterpart of `have' -- it has no \"body\" field of its own (a `have'
 tactic is always followed by a sibling tactic, never a nested one), so it
 only ever takes the \"value continues past the binder\" branch below.")
 
-(defconst lean-ts-arm-nodes '("match_arm" "cases_arm")
+(defconst lean-ts-arm-nodes '("match_arm" "cases_arm" "tactic_match_arm")
   "Node types for one alternative of a pattern match.
 
-`match' and the `cases' tactic share this shape: a flat run of arms
-under the keyword that introduced them.  Keying the arm rules off this
-list rather than \"match_arm\" alone keeps `cases_arm' in sync with
-whatever indentation convention is eventually settled on for arms,
-instead of drifting if only one of the two is ever updated.")
+`match', the `cases' tactic, and the tactic-position `match' all share
+this shape: a flat run of arms under the keyword that introduced them.
+Keying the arm rules off this list rather than \"match_arm\" alone
+keeps `cases_arm' and `tactic_match_arm' in sync with whatever
+indentation convention is eventually settled on for arms, instead of
+drifting if only one of the three is ever updated.")
 
 (defun lean-ts--regexp (types)
   "Regexp matching exactly the node types in TYPES."
