@@ -16,13 +16,13 @@
 
 ;;;; Indentation
 
-(defcustom lean-ts-basic-offset 2
+(defcustom lean-ts-indent-offset 2
   "Offset used by tree-sitter for indentation in `lean-mode' buffers."
   :type 'integer
   :group 'lean)
 
 (defun lean-ts--double-offset (&rest _)
-  (* 2 lean-ts-basic-offset))
+  (* 2 lean-ts-indent-offset))
 
 (defconst lean-ts-block-openers '("by" "do" "where" "match" "fun" "then" "else")
   "Keywords that open a layout block.
@@ -256,10 +256,10 @@ indentation of Lean code.")
     ;; The previous line ended on the block-opening keyword itself, so
     ;; nothing has been written in the block yet.  This is the normal state
     ;; while a proof is being typed.
-    ((eol-token-is ,(lean-ts--block-openers)) no-indent lean-ts-basic-offset)
+    ((eol-token-is ,(lean-ts--block-openers)) no-indent lean-ts-indent-offset)
     ;; Likewise for a delimiter left open at the end of a line.
     ((eol-token-is ,(lean-ts--regexp '("(" "[" "{" "⟨")))
-     no-indent lean-ts-basic-offset)
+     no-indent lean-ts-indent-offset)
     ;; A line beginning with one of these begins a sibling of it, so the
     ;; next line starts at the same column: another field, another arm,
     ;; another binding, or the declaration an attribute was written for.
@@ -280,14 +280,14 @@ indentation of Lean code.")
     ;; previous line's own indentation with `no-indent' rather than on the
     ;; tree, since an ERROR node starts at column 0 however deeply nested
     ;; the real context is.
-    ((node-is "ERROR") no-indent lean-ts-basic-offset)
-    ((parent-is "ERROR") no-indent lean-ts-basic-offset)
+    ((node-is "ERROR") no-indent lean-ts-indent-offset)
+    ((parent-is "ERROR") no-indent lean-ts-indent-offset)
     ;; `fun x =>' opens a body even when the declaration itself parses.
-    ((node-is "fun") no-indent lean-ts-basic-offset)
+    ((node-is "fun") no-indent lean-ts-indent-offset)
     ;; A focus block that has closed its goal is finished; anything else
     ;; in one is still open and the next tactic belongs inside it.
     ((query ,lean-ts-closed-focus-block-query) no-indent 0)
-    ((node-is "tactic_focus") no-indent lean-ts-basic-offset)
+    ((node-is "tactic_focus") no-indent lean-ts-indent-offset)
     ;; Another tactic in the same sequence.
     ((parent-is "by") no-indent 0)
     (catch-all no-indent 0))
@@ -304,8 +304,8 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     (no-node column-0 lean-ts--empty-line-offset)
     ;; Incomplete input.  The ERROR node starts at column 0 however deeply
     ;; nested the real context is, so measure from the previous line.
-    ((node-is "ERROR") prev-line lean-ts-basic-offset)
-    ((parent-is "ERROR") prev-line lean-ts-basic-offset)
+    ((node-is "ERROR") prev-line lean-ts-indent-offset)
+    ((parent-is "ERROR") prev-line lean-ts-indent-offset)
     ;; Commands sit at the left margin, and attributes or a doc comment
     ;; written above one must not push the declaration itself off it.
     ((parent-is "module") column-0 0)
@@ -313,33 +313,33 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; Focus blocks: align with the `·' after a closing tactic, otherwise
     ;; indent into the block.
     ((query ,lean-ts-after-closing-tactic-query) parent 0)
-    ((parent-is "tactic_focus") parent lean-ts-basic-offset)
+    ((parent-is "tactic_focus") parent lean-ts-indent-offset)
     ;; Tactic sequences hang directly off `by', with the keyword as child
     ;; 0, so the first tactic indents from whatever line `by' ends.
     ;; The parent type is matched as a regexp, so these are anchored:
     ;; a bare "do" would also claim `do_if' and every other do element.
     ((match nil ,(lean-ts--regexp '("by")) nil 1 1)
-     standalone-parent lean-ts-basic-offset)
+     standalone-parent lean-ts-indent-offset)
     ((parent-is ,(lean-ts--regexp '("by"))) prev-sibling 0)
     ((match nil ,(lean-ts--regexp '("do")) nil 1 1)
-     standalone-parent lean-ts-basic-offset)
+     standalone-parent lean-ts-indent-offset)
     ((parent-is ,(lean-ts--regexp '("do"))) prev-sibling 0)
     ;; Alternation.  `match', a pattern-matching `fun', and the `cases'
     ;; tactic all hold their arms as flat children, so every arm lines up
     ;; with the keyword and only an arm's own body indents past it.
     ((node-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent 0)
-    ((parent-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent lean-ts-basic-offset)
+    ((parent-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent lean-ts-indent-offset)
     ;; The body of a `fun' that is not pattern matching.
-    ((parent-is ,(lean-ts--regexp '("fun"))) standalone-parent lean-ts-basic-offset)
+    ((parent-is ,(lean-ts--regexp '("fun"))) standalone-parent lean-ts-indent-offset)
     ;; Fields and constructors are in the `fields' and `constructors'
     ;; fields rather than `body', so they would otherwise fall through to
     ;; the signature-continuation rule below and indent twice.
-    ((node-is "structure_field") standalone-parent lean-ts-basic-offset)
-    ((node-is "constructor") standalone-parent lean-ts-basic-offset)
+    ((node-is "structure_field") standalone-parent lean-ts-indent-offset)
+    ((node-is "constructor") standalone-parent lean-ts-indent-offset)
     ;; `else' closes the branch above it, so it belongs to the `if'.
     ((node-is "else") standalone-parent 0)
     ((parent-is ,(lean-ts--regexp '("if" "if_let" "do_if" "do_if_let")))
-     standalone-parent lean-ts-basic-offset)
+     standalone-parent lean-ts-indent-offset)
     ;; A run of bindings reads as a flat sequence even though the grammar
     ;; nests each one inside the last, so only the body stays put; the
     ;; value being bound is a continuation and indents.
@@ -347,7 +347,7 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
           (match nil nil "body"))
      standalone-parent 0)
     ((parent-is ,(lean-ts--regexp lean-ts-binding-nodes))
-     standalone-parent lean-ts-basic-offset)
+     standalone-parent lean-ts-indent-offset)
     ;; A closer belongs to the line that opened it.
     ((node-is ,(lean-ts--regexp lean-ts-closing-delimiters)) standalone-parent 0)
     ;; A line swallowed into the arguments of the statement above it goes
@@ -362,7 +362,7 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
           lean-ts--hanging-item-p)
      lean-ts--hanging-item-anchor 0)
     ((parent-is ,(lean-ts--regexp lean-ts-hanging-nodes))
-     standalone-parent lean-ts-basic-offset)
+     standalone-parent lean-ts-indent-offset)
     ;; A second (or later) binder that spills onto its own line aligns
     ;; under the first one, the same Emacs convention as the hanging
     ;; nodes above.  Excluding index 0 leaves the first binder itself to
@@ -378,9 +378,9 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; `decorated_declaration', which is the grammar's own list and covers
     ;; `example' and `notation' as well as the `_declaration' supertype.
     ((and (parent-field-is "declaration") (match nil nil "body"))
-     standalone-parent lean-ts-basic-offset)
+     standalone-parent lean-ts-indent-offset)
     ((parent-field-is "declaration") standalone-parent lean-ts--double-offset)
-    ((parent-is "where_decl") standalone-parent lean-ts-basic-offset)
+    ((parent-is "where_decl") standalone-parent lean-ts-indent-offset)
     ;; Nothing in the tree claims this line.  Holding the previous line's
     ;; column leaves hand-written layout alone, where measuring from the
     ;; tree would stack a fresh offset onto every line in a run of them.
