@@ -71,19 +71,18 @@ as local tooling, not shipped code).
   anywhere in the codebase, exercising whatever's under test against known-
   correct input and looking for drift. Returns a structured report; never
   edits anything.
-- **Gary** (`~/code/yalm-gary`): turns a Tim report (or a directly-specified
-  bug/feature) into a fix plus a test, verifies with `eldev test`, and
-  commits — one commit per unit of work, GNU changelog format, on his own
-  branch. Doesn't wait for Erica between fixes.
-- **Erica** (`~/code/yalm-erica`): reviews a specific Gary commit for design
-  consistency and simplicity against this file's own conventions, may amend
-  and commit on top of it, reports a verdict.
+- **Gary** (`~/code/yalm-gary`, branch `gary/fix`): turns a Tim report (or a
+  directly-specified bug/feature) into a fix plus a test, verifies with
+  `eldev test`, and commits — one commit per unit of work, GNU changelog
+  format, on his own branch. Doesn't wait for Erica between fixes.
+- **Erica** (`~/code/yalm-erica`, branch `erica/review`): reviews a specific
+  Gary commit for design consistency and simplicity against this file's own
+  conventions, may amend and commit on top of it, reports a verdict.
 
-The worktree branch names (`gary/fix-indent-rules`, `erica/review`) predate
-this broader scope — `gary/fix-indent-rules` in particular is a holdover
-from when the pipeline only did indentation work. Renaming a branch that's
-checked out in a live worktree is disruptive for no real benefit, so they
-stay as-is; read them as historical labels, not scope boundaries.
+(`gary/fix` was renamed from `gary/fix-indent-rules` once the pipeline's
+scope broadened beyond indentation — the old name would otherwise show up
+in merge-commit messages implying indentation-specific work that isn't
+happening.)
 
 Both worktrees exist so Gary/Erica never touch this checkout directly —
 Trevor edits it live in a running Emacs session, and stepping on that is
@@ -109,7 +108,7 @@ failures once already.
 **Branch flow is one-directional: `devel` only ever advances by pulling
 Erica's reviewed tip, never the other way around.** Concretely:
 
-1. Gary commits fixes on `gary/fix-indent-rules`.
+1. Gary commits fixes on `gary/fix`.
 2. Erica reviews (and may amend) on `erica/review`, built on top of Gary's
    commits.
 3. The orchestrating session fast-forwards `devel` from `erica/review` —
@@ -140,9 +139,11 @@ which should recur:
   the point where that initial indentation work shipped to `origin/main`.
   `main` and `devel` were fast-forwarded from `feature-indent`'s tip as
   part of that push, and `devel` — not `feature-indent` — is the landing
-  branch for everything from that point on. `feature-indent` still exists
-  but shouldn't gain new commits; treat `devel` as the actual leading edge
-  local development advances from.
+  branch for everything from that point on. `feature-indent` has since
+  been deleted (its history is fully contained in `devel`/`main`); treat
+  `devel` as the actual leading edge, with direct/ad hoc work committing
+  straight onto it. Start a new feature branch only if some future unit of
+  work genuinely needs the isolation — it's not the default anymore.
 
 ## GitHub issue paper trail
 
