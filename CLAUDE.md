@@ -55,24 +55,35 @@ keep only a comment that survives that question. This is Erica's own
 standard for judging Gary's work, and Gary should hold himself to it on the
 first draft rather than leaving it for review to catch.
 
-## `lean-ts.el` indentation work: Tim → Gary → Erica
+## Tim → Gary → Erica: the find → fix → review pipeline
 
-Indentation-rule work on `lean-ts.el` follows the same three-role pattern
-used in the sibling `tree-sitter-lean` grammar project, adapted to this
-repo. Agent definitions live in `.claude/agents/{tim,gary,erica}.md`
+Bug and feature work on yalm follows the same three-role pattern used in
+the sibling `tree-sitter-lean` grammar project, adapted to this repo. It
+started out scoped to `lean-ts.el` indentation rules and that's still
+where it gets the heaviest use, but the pipeline itself isn't limited to
+indentation — Tim can be pointed at font-lock, the Eglot/lsp-mode LSP
+layer, the input method, comment handling, or anything else in the
+codebase. Agent definitions live in `.claude/agents/{tim,gary,erica}.md`
 (untracked, like this whole directory in the sibling project — treat them
 as local tooling, not shipped code).
 
-- **Tim** (read-only, works in this checkout): hunts for indentation gaps by
-  re-indenting known-correct Lean snippets and looking for drift. Returns a
-  structured report; never edits `lean-ts.el` or the tests.
-- **Gary** (`~/code/yalm-gary`, branch `gary/fix-indent-rules`): turns a
-  Tim report into a rule fix plus a buttercup spec, verifies with `eldev
-  test`, and commits — one commit per fix, GNU changelog format, on his own
+- **Tim** (read-only, works in this checkout): hunts for bugs and gaps
+  anywhere in the codebase, exercising whatever's under test against known-
+  correct input and looking for drift. Returns a structured report; never
+  edits anything.
+- **Gary** (`~/code/yalm-gary`): turns a Tim report (or a directly-specified
+  bug/feature) into a fix plus a test, verifies with `eldev test`, and
+  commits — one commit per unit of work, GNU changelog format, on his own
   branch. Doesn't wait for Erica between fixes.
-- **Erica** (`~/code/yalm-erica`, branch `erica/review`): reviews a specific
-  Gary commit for design consistency and simplicity against this file's own
-  conventions, may amend and commit on top of it, reports a verdict.
+- **Erica** (`~/code/yalm-erica`): reviews a specific Gary commit for design
+  consistency and simplicity against this file's own conventions, may amend
+  and commit on top of it, reports a verdict.
+
+The worktree branch names (`gary/fix-indent-rules`, `erica/review`) predate
+this broader scope — `gary/fix-indent-rules` in particular is a holdover
+from when the pipeline only did indentation work. Renaming a branch that's
+checked out in a live worktree is disruptive for no real benefit, so they
+stay as-is; read them as historical labels, not scope boundaries.
 
 Both worktrees exist so Gary/Erica never touch this checkout directly —
 Trevor edits it live in a running Emacs session, and stepping on that is
@@ -80,7 +91,9 @@ worse here than the usual worktree-isolation rationale (races on shared
 build artifacts) that motivated the same pattern in `tree-sitter-lean`.
 
 Each worktree needs its own `Eldev-local` (untracked, not shared across
-worktrees) pointing `treesit-extra-load-path` at the authoritative parser:
+worktrees) pointing `treesit-extra-load-path` at the authoritative parser
+— needed for any `eldev test` run that touches `lean-ts.el`, whether or not
+the fix itself is indentation-related:
 
 ```elisp
 (setq treesit-extra-load-path
@@ -93,34 +106,43 @@ on the system load path instead of `~/.emacs.d/tree-sitter/`, which Trevor
 updates by hand — this caused a full session's worth of spurious test
 failures once already.
 
-**Branch flow is one-directional: `feature-indent` only ever advances by
-pulling Erica's reviewed tip, never the other way around.** Concretely:
+**Branch flow is one-directional: `devel` only ever advances by pulling
+Erica's reviewed tip, never the other way around.** Concretely:
 
 1. Gary commits fixes on `gary/fix-indent-rules`.
 2. Erica reviews (and may amend) on `erica/review`, built on top of Gary's
    commits.
-3. The orchestrating session fast-forwards `feature-indent` from
-   `erica/review` — never commits new indentation-rule work directly onto
-   `feature-indent` that Erica hasn't seen, and never merges Gary's branch
-   into `feature-indent` directly, skipping her review.
-4. Before Gary starts his next fix, his worktree pulls from `feature-indent`
-   (`git merge feature-indent` from `~/code/yalm-gary`) — which by step 3 is
-   always Erica's latest reviewed tip. He never builds on a base older than
-   her last review. A clean fast-forward is the expected case; if Erica
+3. The orchestrating session fast-forwards `devel` from `erica/review` —
+   never commits new work directly onto `devel` that Erica hasn't seen,
+   and never merges Gary's branch into `devel` directly, skipping her
+   review.
+4. Before Gary starts his next fix, his worktree pulls from `devel`
+   (`git merge devel` from `~/code/yalm-gary`) — which by step 3 is always
+   Erica's latest reviewed tip. He never builds on a base older than her
+   last review. A clean fast-forward is the expected case; if Erica
    amended something Gary had already built on top of, the merge can
    conflict for real. When it does, her side wins on every conflicting
    hunk — she's the reviewed baseline, not a negotiation — and Gary adapts
    whatever of his own work that resolution invalidates in a follow-up
    commit.
 
-Reconciling branches and deciding when a batch is ready for Trevor's
-attention is the orchestrating session's job, not something either agent
-does itself. (One-off exception: the initial round of gaps 1–5 plus this
-infrastructure was done directly on `feature-indent` by the orchestrating
-session itself, before this worktree split existed — Gary and Erica were
-fast-forwarded to match afterward. That shouldn't recur; going forward, all
-lean-ts.el indentation-rule changes go through the Gary → Erica →
-`feature-indent` flow above.)
+Reconciling branches, and deciding when a batch is ready to fast-forward
+into `main` (and for Trevor's attention), is the orchestrating session's
+job, not something either agent does itself.
+
+Two historical notes on the branch this pipeline lands on, neither of
+which should recur:
+- The initial round of indentation gaps 1–5 plus this pipeline's own
+  infrastructure was done directly on `feature-indent` by the
+  orchestrating session itself, before the worktree split existed — Gary
+  and Erica were fast-forwarded to match afterward.
+- `feature-indent`, not `devel`, was the pipeline's landing branch through
+  the point where that initial indentation work shipped to `origin/main`.
+  `main` and `devel` were fast-forwarded from `feature-indent`'s tip as
+  part of that push, and `devel` — not `feature-indent` — is the landing
+  branch for everything from that point on. `feature-indent` still exists
+  but shouldn't gain new commits; treat `devel` as the actual leading edge
+  local development advances from.
 
 ## GitHub issue paper trail
 
@@ -150,8 +172,8 @@ alternatives — actually lives, for a reader who opts into that depth.
    close the issue either.
 5. **The orchestrating session** closes the issue only after Erica's turn
    is fully done, once the branch-flow steps above land the work on
-   `feature-indent`. Closing right after Gary's commit, before Erica has
-   weighed in, is the single most common mistake here — don't.
+   `devel`. Closing right after Gary's commit, before Erica has weighed
+   in, is the single most common mistake here — don't.
 
 Only the orchestrating session calls `gh issue create` / `gh issue close`.
 Gary and Erica only ever `gh issue comment`.
@@ -168,14 +190,22 @@ substitution — don't over-apply that habit to a quoted heredoc body. If
 ever unsure what actually got stored, check with `gh api
 repos/tmurph/yalm/issues/N --jq '.body'`.
 
-**Not retroactive.** The 22 commits already on `feature-indent` from before
-this convention was adopted have no issues behind them, and that's fine —
-backfilling issues for already-reviewed, already-stable history is exactly
-the kind of busywork the template's own "fallback" procedure warns against
-manufacturing unless the lack of a paper trail is actually causing a
-problem. This applies going forward, starting with the next Tim report.
+**Not retroactive.** The 22 commits that landed on `feature-indent` (now
+merged into `devel`/`main`) from before this convention was adopted have no
+issues behind them, and that's fine — backfilling issues for already-
+reviewed, already-stable history is exactly the kind of busywork the
+template's own "fallback" procedure warns against manufacturing unless the
+lack of a paper trail is actually causing a problem. This applies going
+forward, starting with the next Tim report.
 
 ## Design principle: trust the parse tree, not assumed intent
+
+This applies to indentation/parser-dependent work on `lean-ts.el`
+specifically — other corners of the codebase Tim/Gary/Erica now cover
+don't have an equivalent parse tree to defer to, so this doesn't
+generalize verbatim. The underlying instinct does, though: resolve a
+design question by checking what the code/artifact actually does, not by
+guessing at intent.
 
 When an indent rule's correctness depends on what the user "meant" rather
 than what the grammar actually produced, resolve it by checking the real
@@ -203,8 +233,10 @@ different questions.
 
 ## Reporting `tree-sitter-lean` grammar gaps upstream
 
-Indentation rules can only be as correct as the parse tree they key off
-of. When a gap turns out to be a missing or wrong grammar node rather
+Applies specifically when Tim's work touches `lean-ts.el`/the
+tree-sitter-lean grammar — not relevant to other domains the pipeline now
+covers. Indentation rules can only be as correct as the parse tree they key
+off of. When a gap turns out to be a missing or wrong grammar node rather
 than a missing indent rule, it belongs upstream in the `tree-sitter-lean`
 grammar project (`~/code/tree-sitter-lean`), not worked around here.
 
