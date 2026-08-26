@@ -260,13 +260,18 @@ called out, rather than left for the reader to line up by eye."
                         '("theorem {a : ℝ} : a = a := by"
                           "  rfl")))
 
-    (it "remains the same in a tactics block"
+    ;; Same shape as the do-block and bare-tactic cases below: `sorry'
+    ;; over-indented past `intro x y' is just a third bare argument of
+    ;; `intro', with no "new tactic" parse on offer, so it hangs
+    ;; aligned under the first argument instead of pulling back to
+    ;; `intro''s own column.
+    (it "hangs an over-indented statement in a tactics block"
       (lean-indent-test '("theorem {a : ℝ} : a = a := by"
                           "    intro x y"
                           "      ‸sorry")
                         '("theorem {a : ℝ} : a = a := by"
                           "    intro x y"
-                          "    sorry")))
+                          "            sorry")))
 
     (it "increases for proof body"
       (lean-indent-test '("theorem {a : ℝ} : a = a :="
@@ -381,13 +386,19 @@ called out, rather than left for the reader to line up by eye."
                         '("def main : IO Unit := do"
                           "  IO.println 1")))
 
-    (it "remains the same in a do block"
+    ;; As with the tactic case below, `IO.println 1' followed by an
+    ;; over-indented `IO.println 2' has no "new statement" parse
+    ;; available at all -- it is `IO.println' applied to three bare
+    ;; arguments (`1', `IO.println', `2') -- so this hangs as a
+    ;; continued argument, aligned under the first one, rather than
+    ;; pulling back to `IO.println''s own column.
+    (it "hangs an over-indented statement in a do block"
       (lean-indent-test '("def main : IO Unit := do"
                           "  IO.println 1"
                           "      ‸IO.println 2")
                         '("def main : IO Unit := do"
                           "  IO.println 1"
-                          "  IO.println 2")))
+                          "             IO.println 2")))
 
     ;; TODO: column 0 closes the layout block, so the parser sees a
     ;; top-level fragment rather than an under-indented do element.
@@ -580,13 +591,26 @@ called out, rather than left for the reader to line up by eye."
                           "  1,"
                           "  2⟩")))
 
-    (it "pulls back an over-indented statement"
+    ;; `exact bar' followed by an over-indented `exact baz' parses as
+    ;; `exact' with three bare-identifier arguments (`bar', `exact',
+    ;; `baz') -- there is no "new tactic" reading available at all, so
+    ;; the line hangs as a continued argument rather than pulling back
+    ;; to `exact''s own column.
+    (it "hangs an over-indented tactic argument rather than pulling it back"
       (lean-indent-test '("theorem foo : True := by"
                           "  exact bar"
                           "      ‸exact baz")
                         '("theorem foo : True := by"
                           "  exact bar"
-                          "  exact baz"))))
+                          "    exact baz")))
+
+    (it "hangs a wrapped tactic argument under the first one"
+      (lean-indent-test '("example : True := by"
+                          "  exact Set.disjoint_left.mp foo"
+                          "    ‸bar baz")
+                        '("example : True := by"
+                          "  exact Set.disjoint_left.mp foo"
+                          "                             bar baz"))))
 
   (describe "in a malformed expression"
 

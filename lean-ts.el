@@ -147,18 +147,28 @@ and for a bracketed node the opening delimiter and the first element."
           (treesit-node-child parent 1)))))
 
 (defconst lean-ts--statement-parents
-  (rx-to-string `(: bos (or "by" "do" (: "tactic_" (+ nonl))
-                            ,@lean-ts-binding-nodes)
-                    eos)
-                t)
-  "Regexp matching node types whose children are statements.")
+  (rx-to-string `(: bos (or ,@lean-ts-binding-nodes) eos) t)
+  "Regexp matching node types whose children are statements.
+
+`by', `do' and the `tactic_*' node types used to be included here too,
+pulling an over-indented tactic argument back to the tactic's own
+column.  But an over-indented line in a `by' or `do' block never
+actually gets a \"new statement\" reading from the parser in the first
+place -- Lean's layout rule only starts a new tactic at or below the
+block's own column, so anything indented past `exact bar' really is
+parsed as another bare argument of `exact', with no alternative parse
+available.  Pulling it back mismatched the parse tree it was
+supposedly reacting to; the hanging rules below now handle it like any
+other continued argument.  Bindings are different: a run of `let's is
+genuinely ambiguous between \"new sibling binding\" and \"continuation
+of the value\", so that part still needs a real decision here.")
 
 (defun lean-ts--statement-continuation-p (_node parent &rest _)
-  "Non-nil when PARENT is an application continuing a block statement.
+  "Non-nil when PARENT is an application continuing a binding chain.
 
-In a `by' block, a `do' block or the value of a binding, the layout rule
-swallows an over-indented line into the arguments of the statement above
-it.  Such a line is nearly always a statement the user has not lined up
+In the value of a `let'/`have'-style binding, the layout rule swallows
+an over-indented line into the arguments of the statement above it.
+Such a line is nearly always a new binding the user has not lined up
 yet rather than a real argument, so it belongs at the column of the
 statement that swallowed it.  Elsewhere the same shape really is a
 continuation, and the hanging rules handle it instead."
