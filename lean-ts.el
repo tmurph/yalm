@@ -197,6 +197,17 @@ continuation, and the hanging rules handle it instead."
   "Non-nil when PARENT (a `calc' node) has its first step on `calc''s own line."
   (lean-ts--same-line-p parent (treesit-node-child parent 1)))
 
+(defun lean-ts--first-of-kind-p (node parent &rest _)
+  "Non-nil when NODE is the first of PARENT's arms and starts its own line.
+
+PARENT's own start coincides with its introducing keyword, so sharing
+PARENT's line is exactly sharing the keyword's line -- see #4/#5."
+  (let ((prev (treesit-node-prev-sibling node t)))
+    (and (not (lean-ts--same-line-p parent node))
+         (or (null prev)
+             (not (string-match-p (lean-ts--regexp lean-ts-arm-nodes)
+                                   (treesit-node-type prev)))))))
+
 (defun lean-ts--hanging-item-anchor (_node parent &rest _)
   "Anchor on the first item of PARENT, for lining the rest up under it."
   (treesit-node-start (cdr (lean-ts--hanging-parts parent))))
@@ -433,6 +444,12 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; had it" as additional readings.
     ((and (node-is "calc_first_step") (not lean-ts--calc-shares-line-p))
      (standalone-parent . 0)
+     (no-indent . 0))
+    ;; A first-of-kind match/cases/tactic_match arm starting its own
+    ;; line -- see #4/#5.  Default is flush with the keyword; offer
+    ;; "wherever the user already had it" as the deliberate-style
+    ;; reading #4 had no way to ask for.
+    ((and (node-is ,(lean-ts--regexp lean-ts-arm-nodes)) lean-ts--first-of-kind-p)
      (no-indent . 0)))
   "Per-construct EXTRA candidate tab stops for `lean-ts--indent-line'.
 

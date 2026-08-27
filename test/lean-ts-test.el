@@ -767,7 +767,22 @@ to be simulated by hand here to exercise cycling at all."
         (forward-line 1)
         (setq this-command #'indent-according-to-mode)
         (call-interactively #'indent-according-to-mode)
-        (expect (current-indentation) :to-equal 4)))))
+        (expect (current-indentation) :to-equal 4))))
+
+  (it "cycles a first-of-kind match arm between the keyword's column and the original column"
+    (lean-indent-tab-stop-test
+     '("def f (n : Nat) : Nat :="
+       "  match n with"
+       "      ‸| 0 => 1")
+     '(2 6 2 6)))
+
+  (it "does not cycle a later arm, which has no deliberate-style reading to offer"
+    (lean-indent-tab-stop-test
+     '("def f (n : Nat) : Nat :="
+       "  match n with"
+       "  | 0 => 1"
+       "      ‸| _ => 2")
+     '(2 2))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here
