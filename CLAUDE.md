@@ -153,6 +153,33 @@ which should recur:
   straight onto it. Start a new feature branch only if some future unit of
   work genuinely needs the isolation — it's not the default anymore.
 
+### Feature branches for larger units of work
+
+Some units of work are big enough — multiple Gary commits, spanning more
+than one Tim/Gary/Erica round-trip — to want the same isolation
+`feature-indent` originally provided, without making every small bug fix
+pay for it. When that's the case (the orchestrating session's judgment
+call, same as everything else in this section):
+
+1. Create a new branch off the current `devel` tip: `git branch
+   feature-<slug> devel`. It doesn't need its own worktree — Gary and
+   Erica keep using their existing worktrees, just pointed at a different
+   landing branch for the duration.
+2. Point Gary and Erica at `feature-<slug>` instead of `devel` for
+   everything branch-flow-related: Gary syncs from it
+   (`git merge feature-<slug>`) before each new commit, Erica's reviewed
+   tip fast-forwards it, exactly the same one-directional flow and
+   conflict policy as the normal `devel` case — just with `feature-<slug>`
+   standing in for `devel` as the intermediate landing point. Say so
+   explicitly in each dispatch; don't assume the agent infers it.
+3. Fast-forwarding `feature-<slug>` itself as each commit clears review is
+   routine, same as `devel` normally is. Fast-forwarding `devel` *from*
+   `feature-<slug>` once the whole unit of work is done is not — that's
+   the feature-branch equivalent of the `devel` → `main` decision above,
+   and needs Trevor's go-ahead the same way.
+4. Delete `feature-<slug>` once it's merged into `devel`, the same way
+   `feature-indent` was.
+
 ## GitHub issue paper trail
 
 Adopted from the `~/code/agent-templates/tim-gary-erica` template (refined
@@ -206,6 +233,46 @@ reviewed, already-stable history is exactly the kind of busywork the
 template's own "fallback" procedure warns against manufacturing unless the
 lack of a paper trail is actually causing a problem. This applies going
 forward, starting with the next Tim report.
+
+### Feature requests
+
+Same paper trail, adapted for work that starts from a design rather than a
+discovered bug — the lifecycle and roles run in a different order:
+
+1. **The orchestrating session** creates the issue (`enhancement` label),
+   using whatever design already exists — usually a design discussion had
+   directly with Trevor — as the body. Unlike a bug report, Tim isn't the
+   source of the initial write-up here.
+2. **Tim** is dispatched to dive into implementation feasibility against
+   the real codebase before Gary starts: verifying assumptions the design
+   made (does the treesit API it relies on actually exist and behave as
+   assumed? what are the concrete node types/candidate lists for the
+   specific constructs in scope?), the same investigative rigor as a bug
+   report. This becomes a **comment** on the issue, not the body — the
+   body's already written.
+3. **Gary** implements from the issue plus Tim's comment. Features are
+   usually more than one commit — prioritize "one idea per commit" over
+   cramming a whole feature into one, the same instinct as "one commit per
+   bug" just acknowledging multiple commits is normal here. It's fine to
+   implement part of a feature, commit what's solid, and post a comment
+   describing what's done and what open question remains rather than
+   guessing past a genuine ambiguity — that hands control back to the
+   orchestrator to re-dispatch Tim for guidance on the open question,
+   mirroring "if you can't find a fix that doesn't regress the suite, say
+   so" from the bug-fix flow.
+4. **Erica** reviews each of Gary's commits exactly the way she reviews
+   bug fixes — same criteria, same per-commit cadence, nothing different.
+5. **The orchestrating session** closes the issue once the feature (all
+   its commits) has cleared Erica's review and landed, same timing rule as
+   a bug fix.
+
+Large features normally live on their own branch — see "Feature branches
+for larger units of work" above; Gary/Erica sync with whatever branch
+they're told for the current unit of work, not always `devel`.
+
+Distinct issue templates for features vs. bugs aren't set up yet — not
+needed for Tim to work effectively so far. Revisit if that changes; don't
+build it speculatively ahead of an actual need.
 
 ## Design principle: trust the parse tree, not assumed intent
 
