@@ -659,7 +659,35 @@ called out, rather than left for the reader to line up by eye."
                           "‸2")
                         '("example : Nat :="
                           "  1 +"
-                          "    2"))))
+                          "    2")))
+
+    (it "aligns calc steps with \"calc\""
+      (lean-indent-test '("example : Nat :="
+                          "  calc 1"
+                          "      ‸_ = 1 := rfl")
+                        '("example : Nat :="
+                          "  calc 1"
+                          "  _ = 1 := rfl")))
+
+    ;; Each step's own `by' proof used to leave the tactic block's
+    ;; deeper column as the previous line, so the next step -- itself
+    ;; already correctly aligned -- fell to the catch-all and inherited
+    ;; that column instead of staying with its sibling steps.
+    (it "remains aligned with \"calc\" after a multi-line step"
+      (lean-indent-test '("example : True := by"
+                          "  have h : True :="
+                          "    calc True"
+                          "    _ = True := by"
+                          "      sorry"
+                          "    ‸_ = True := by"
+                          "      sorry")
+                        '("example : True := by"
+                          "  have h : True :="
+                          "    calc True"
+                          "    _ = True := by"
+                          "      sorry"
+                          "    _ = True := by"
+                          "      sorry"))))
 
   (describe "in a malformed expression"
 

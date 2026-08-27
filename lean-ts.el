@@ -66,6 +66,14 @@ keeps `cases_arm' and `tactic_match_arm' in sync with whatever
 indentation convention is eventually settled on for arms, instead of
 drifting if only one of the three is ever updated.")
 
+(defconst lean-ts-calc-step-nodes '("calc_first_step" "calc_step")
+  "Node types for one step of a `calc' block.
+
+Like `lean-ts-arm-nodes', these sit as a flat run of children under the
+keyword that introduced them (`calc'), so a step that spills onto its
+own line aligns with `calc' rather than inheriting the indentation of
+whatever the previous step's proof happened to end on.")
+
 (defun lean-ts--regexp (types)
   "Regexp matching exactly the node types in TYPES."
   (rx-to-string `(: bos (or ,@types) eos) t))
@@ -329,6 +337,8 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; with the keyword and only an arm's own body indents past it.
     ((node-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent 0)
     ((parent-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent lean-ts-indent-offset)
+    ;; `calc' steps are the same flat-run shape -- see #2.
+    ((node-is ,(lean-ts--regexp lean-ts-calc-step-nodes)) standalone-parent 0)
     ;; The body of a `fun' that is not pattern matching.
     ((parent-is ,(lean-ts--regexp '("fun"))) standalone-parent lean-ts-indent-offset)
     ;; Fields and constructors are in the `fields' and `constructors'
