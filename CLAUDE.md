@@ -55,6 +55,13 @@ keep only a comment that survives that question. This is Erica's own
 standard for judging Gary's work, and Gary should hold himself to it on the
 first draft rather than leaving it for review to catch.
 
+**Reach for `pcase`-family macros when they're a genuine structural fit** —
+destructuring a `(MATCHER . CANDIDATES)`-shaped list, dispatching on a
+node-type string, that kind of thing — rather than hand-rolling the
+equivalent with `car`/`cdr`/`dolist`. Trevor's own stated preference,
+demonstrated in `ec625dd`. Not a mandate to retrofit existing code that
+already reads fine without it.
+
 ## Tim → Gary → Erica: the find → fix → review pipeline
 
 Bug and feature work on yalm follows the same three-role pattern used in
@@ -306,6 +313,65 @@ statement" for a blank line after a tactic, independent of whatever the
 non-blank-line rules would do once real content lands there. Don't try to
 unify these two rule sets' handling of the same shape; they're answering
 different questions.
+
+## Design principle: prefer a library's public extension points over its internals
+
+Applies whenever a feature needs to hook into an Emacs subsystem
+(`treesit`, but not only `treesit`) rather than just add rules to our own
+tables. The bar for "this works" isn't just correct output — it's whether
+there's a supported, public hook that does the job more directly, checked
+*before* falling back to reimplementing or depending on a private (`--`)
+function.
+
+Concrete case this principle came from: the tab-stop-cycling feature
+(issue #5) needed to plug custom logic into indentation-on-TAB. The first
+implementation overrode `indent-line-function` wholesale and hand-copied
+`treesit--indent-1`'s internal NODE/PARENT-finding logic
+(`treesit--indent-largest-node-at`, private) to work around a real bug in
+a naive `treesit-node-at` approach — Erica flagged the private-API
+dependency as a review risk, correctly, but the fix under review was still
+the best fix anyone had found at the time. Trevor's own rewrite found and
+used `treesit-indent-function` instead — a real, public hook that lets you
+supply just the ANCHOR/OFFSET decision while treesit's own `treesit-indent`
+keeps doing the NODE/PARENT-finding, blank-line detection, and point
+preservation itself. That didn't just avoid the private-API dependency, it
+eliminated the entire class of bug Tim had found, at the root, instead of
+working around it.
+
+**How to apply:** when Tim does a feasibility check involving a library's
+internals, explicitly search for the intended public hook first — don't
+stop at "I found a way to make this work." When reviewing (Erica) or
+implementing (Gary), treat "this duplicates or depends on private
+internals" as a real design smell worth escalating, not a minor risk note
+to mention in passing.
+
+## Testing philosophy: interactive behavior only, not contrived interactive/non-interactive mixtures
+
+Write a test for interactive-only behavior (anything keyed on
+`last-command`/`this-command`, point position across commands, or other
+state that only makes sense in a real editing session) only when the
+scenario is reachable through an actual sequence of real commands — not
+just through directly manipulating the variables a command happens to
+read.
+
+Concrete case: an early tab-stop-cycling test simulated pressing TAB,
+jumping to a different line via a non-interactive `goto-char`, then
+pressing TAB again while manually forcing `last-command`/`this-command`
+equality — a sequence no real user interaction can produce. In genuine
+interactive use, `(eq this-command last-command)` holding across two TAB
+presses already implies nothing else ran in between, which already implies
+point never left the line — so there was nothing left for the test to
+guard against once traced through. The test passed by forcing a state
+real interaction can't reach, not by validating real behavior.
+
+**How to apply:** if a problem is likely to arise in normal interactive
+use, write a test that demonstrates it through a real command sequence. If
+an issue only arises by mixing interactive and non-interactive invocation
+to force a state, don't write a preemptive guard for it — implement the
+simplest correct thing and wait for an actual bug report if it turns out
+to matter. Applies to Tim (don't manufacture this class of finding), Gary
+(don't add defensive code for it), and Erica (don't ask for a test of it
+in review) alike.
 
 ## Reporting `tree-sitter-lean` grammar gaps upstream
 
