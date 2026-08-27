@@ -12,6 +12,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'treesit)
 
 ;;;; Indentation
@@ -423,6 +424,89 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
           (+ (save-excursion (goto-char anchor) (current-column))
              offset))))))
 
+;;;; Tab-stop cycling
+
+(defconst lean-ts-indent-extra-tab-stops nil
+  "Per-construct EXTRA candidate tab stops for `lean-ts--indent-line'.
+
+Shaped like `lean-ts-indent-rules' -- same MATCHER vocabulary -- but the
+payload of a matching entry is a list of (ANCHOR . OFFSET) pairs to
+offer on repeated TAB, appended after the candidate `lean-ts-indent-rules'
+alone would produce.  Constructs not listed here have no extra
+candidates and cycling is a no-op.")
+
+(defun lean-ts--matching-extra-tab-stops (node parent bol)
+  "Resolve the extra tab stops for NODE/PARENT/BOL, or nil.
+
+Walks `lean-ts-indent-extra-tab-stops' the way `treesit-simple-indent'
+walks `treesit-simple-indent-rules', evaluating a matching entry's
+ANCHOR/OFFSET pairs with the same preset machinery."
+  (catch 'match
+    (dolist (rule lean-ts-indent-extra-tab-stops)
+      (when (treesit--simple-indent-eval (list (car rule) node parent bol))
+        (throw 'match
+               (mapcar
+                (lambda (stop)
+                  (cons (treesit--simple-indent-eval (list (car stop) node parent bol))
+                        (let ((offset (cdr stop)))
+                          (cond ((numberp offset) offset)
+                                ((and (symbolp offset) (boundp offset))
+                                 (symbol-value offset))
+                                (t (treesit--simple-indent-eval
+                                    (list offset node parent bol)))))))
+                (cdr rule)))))))
+
+(defun lean-ts--tab-stop-candidates (node parent bol)
+  "Return the candidate (ANCHOR . OFFSET) tab stops for NODE/PARENT/BOL.
+
+Candidate 0 is always what `lean-ts-indent-rules' alone would produce,
+computed live via `treesit-simple-indent' rather than duplicated by hand,
+so a fresh (non-repeated) TAB press can never disagree with it.  Nil when
+the construct has no entry in `lean-ts-indent-extra-tab-stops'."
+  (let ((default (treesit-simple-indent node parent bol))
+        (extra (lean-ts--matching-extra-tab-stops node parent bol)))
+    (when extra
+      (cl-remove-duplicates (cons default extra) :test #'equal))))
+
+(defun lean-ts--tab-stop-column (candidate)
+  "Return the indentation column named by CANDIDATE, an (ANCHOR . OFFSET) pair."
+  (+ (save-excursion (goto-char (car candidate)) (current-column))
+     (cdr candidate)))
+
+(defvar-local lean-ts--tab-stop-state nil
+  "State of the tab-stop cycle in progress: (HERE CANDIDATES INDEX), or nil.")
+
+(defun lean-ts--indent-line ()
+  "Indent the current line, cycling extra tab stops on repeated presses.
+
+NODE/PARENT are computed the way `treesit--indent-1' computes them, not
+via `treesit-node-at' -- the latter returns the smallest leaf at BOL,
+which disagrees with the rules whenever a compound node and a leaf token
+share a start position (arms, calc steps), and never reports a blank
+line as blank, which would silently break `lean-ts-empty-line-indent-rules'."
+  (let* ((bol (save-excursion (forward-line 0) (skip-chars-forward " \t") (point)))
+         (node (treesit--indent-largest-node-at bol))
+         (parent (if node (treesit-node-parent node) (treesit-node-on bol bol)))
+         (candidates (lean-ts--tab-stop-candidates node parent bol)))
+    (if (null candidates)
+        (treesit-indent)
+      (let* ((here (line-beginning-position))
+             (repeating (and (eq last-command this-command)
+                              lean-ts--tab-stop-state
+                              (= here (nth 0 lean-ts--tab-stop-state))
+                              (equal candidates (nth 1 lean-ts--tab-stop-state))
+                              (= (current-indentation)
+                                 (lean-ts--tab-stop-column
+                                  (nth (nth 2 lean-ts--tab-stop-state) candidates)))))
+             (idx (if repeating
+                      (mod (1+ (nth 2 lean-ts--tab-stop-state)) (length candidates))
+                    0))
+             (delta (- (point-max) (point))))
+        (setq lean-ts--tab-stop-state (list here candidates idx))
+        (indent-line-to (lean-ts--tab-stop-column (nth idx candidates)))
+        (when (> (- (point-max) delta) (point))
+          (goto-char (- (point-max) delta)))))))
+
 (defun treesit-indent-debug ()
   (print (buffer-string))
   (let* ((smallest-node (save-excursion
@@ -443,7 +527,12 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     (setq-local treesit-simple-indent-presets
                 (append (default-value 'treesit-simple-indent-presets)
                         lean-ts-indent-presets))
-    (treesit-major-mode-setup)))
+    (treesit-major-mode-setup)
+    ;; `treesit-major-mode-setup' just set this to `treesit-indent';
+    ;; override it with the tab-stop-cycling wrapper.  `indent-region-function'
+    ;; stays `treesit-indent-region', unaffected -- batch reindent has no
+    ;; "repeated TAB" to cycle through.
+    (setq-local indent-line-function #'lean-ts--indent-line)))
 
 ;;;; Live reload
 
