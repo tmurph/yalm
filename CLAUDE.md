@@ -283,3 +283,9 @@ using tree-sitter, and reports how many it refreshed.
 
 Only run this after a change has actually landed and been reviewed — it
 takes effect in Trevor's live editing session immediately.
+
+At the end of a work session, if Erica signed off clean on everything (a
+plain `LGTM` on every commit, nothing amended, no concerns raised), it's
+fine to run this without checking with Trevor first — he sees the
+`lean-ts-reload` confirmation message in his echo area. If Erica raised any
+concern or amended anything, or the picture is mixed, ask first as usual.
