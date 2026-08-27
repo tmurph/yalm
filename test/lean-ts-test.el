@@ -651,7 +651,15 @@ called out, rather than left for the reader to line up by eye."
                           "    ‸bar baz")
                         '("example : True := by"
                           "  exact Set.disjoint_left.mp foo"
-                          "                             bar baz"))))
+                          "                             bar baz")))
+
+    (it "increases for the right operand of a trailing infix operator"
+      (lean-indent-test '("example : Nat :="
+                          "  1 +"
+                          "‸2")
+                        '("example : Nat :="
+                          "  1 +"
+                          "    2"))))
 
   (describe "in a malformed expression"
 

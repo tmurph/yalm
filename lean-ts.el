@@ -348,6 +348,10 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
      standalone-parent 0)
     ((parent-is ,(lean-ts--regexp lean-ts-binding-nodes))
      standalone-parent lean-ts-indent-offset)
+    ;; The right operand of a trailing infix operator spills onto its
+    ;; own line the same way a binding's value does -- see #1.
+    ((match nil ,(lean-ts--regexp '("binary_expression")) "right")
+     standalone-parent lean-ts-indent-offset)
     ;; A closer belongs to the line that opened it.
     ((node-is ,(lean-ts--regexp lean-ts-closing-delimiters)) standalone-parent 0)
     ;; A line swallowed into the arguments of the statement above it goes
