@@ -469,10 +469,9 @@ If no MATCHER matches, then cycling is a no-op.")
 (defun lean-ts--extra-tab-stops (node parent bol)
   "Resolve any extra tab stops for (NODE PARENT BOL).
 
-This walks `lean-ts-indent-extra-tab-stops' the way
-`treesit-simple-indent' walks `treesit-simple-indent-rules', evaluating
-a matching entry's (ANCHOR . OFFSET) pairs with the same preset
-machinery.
+This walks `lean-ts-extra-tab-stops' the way `treesit-simple-indent'
+walks `treesit-simple-indent-rules', evaluating a matching
+entry's (ANCHOR . OFFSET) pairs with the same preset machinery.
 
 Returns a list of (ANCHOR-POS . OFFSET-VAL), or nil when no rules match."
   (catch 'match
@@ -508,7 +507,7 @@ returns a deduped, circular list of pairs."
     columns))
 
 (defvar-local lean-ts--tab-stop-state nil
-  "State of the tab-stop cycle in progress: (HERE CANDIDATES INDEX), or nil.")
+  "State of the tab-stop cycle in progress: (POS POS POS . #0), or nil.")
 
 (defun lean-ts-indent-function (node parent bol &rest _)
   "Compute (ANCHOR . OFFSET) for the current line.
