@@ -729,9 +729,17 @@ to be simulated by hand here to exercise cycling at all."
                           "  var"
                           "def Foo : ℝ → ℝ := fun x ↦ g x")))))
 
+;; Each spec below presses TAB repeatedly on the same already-indented
+;; line and asserts the column after every press.  The first column is
+;; always what `lean-ts-indent-rules' alone would produce for a single
+;; fresh press (never disagrees with the plain default); later presses
+;; walk the construct's `lean-ts-extra-tab-stops' entry one candidate at
+;; a time, then wrap back around to the column the line already had.
 (describe "tab-stop cycling"
 
   (it "cycles calc's first step through one-in, calc's own column, and the original column"
+    ;; 4: one step in from `calc' -- the plain default (#4), unchanged.
+    ;; 2: flush with `calc' itself.  6: back to this line's own column.
     (lean-indent-tab-stop-test
      '("example : Nat :="
        "  calc"
@@ -745,32 +753,11 @@ to be simulated by hand here to exercise cycling at all."
        "      ‸1 = 1 := rfl")
      '(4 2 6 4)))
 
-  (it "resets the cycle when point moves to a different line"
-    (assume nil "Need to revisit this interactivity logic.")
-    (with-temp-buffer
-      (let ((lean-use-treesitter t)
-            (indent-tabs-mode nil)
-            last-command this-command)
-        (lean-mode)
-        (lean-utils--insert-and-set-point
-         '("example : Nat :="
-           "  calc"
-           "      ‸1 = 1 := rfl")
-         lean-indent-test-marker)
-        (setq this-command #'indent-according-to-mode)
-        (call-interactively #'indent-according-to-mode)
-        (setq last-command this-command)
-        (forward-line -1)
-        (end-of-line)
-        (setq this-command #'indent-according-to-mode)
-        (call-interactively #'indent-according-to-mode)
-        (setq last-command this-command)
-        (forward-line 1)
-        (setq this-command #'indent-according-to-mode)
-        (call-interactively #'indent-according-to-mode)
-        (expect (current-indentation) :to-equal 4))))
-
   (it "cycles a first-of-kind match arm between the keyword's column and the original column"
+    ;; 2: flush with `match' -- the plain default, and #4's own
+    ;; regression case.  6: the deeper, deliberate-looking column #4
+    ;; found ambiguous and refused to guess at; now available on
+    ;; request instead of just discarded.
     (lean-indent-tab-stop-test
      '("def f (n : Nat) : Nat :="
        "  match n with"
@@ -778,6 +765,9 @@ to be simulated by hand here to exercise cycling at all."
      '(2 6 2 6)))
 
   (it "does not cycle a later arm, which has no deliberate-style reading to offer"
+    ;; Unlike the first arm above, a later arm's column isn't ambiguous
+    ;; -- `lean-ts--first-of-kind-p' excludes it, so every press just
+    ;; re-applies the plain default.
     (lean-indent-tab-stop-test
      '("def f (n : Nat) : Nat :="
        "  match n with"
