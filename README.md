@@ -32,9 +32,12 @@ reimplementing them.
   `lean-use-treesitter`): a `treesit-simple-indent-rules` table driven by
   the [tree-sitter-lean](https://github.com/tmurph/tree-sitter-lean)
   grammar, covering `do`/`by`/`match`/`where` blocks, hanging arguments,
-  binders, and more. Under active development — see `CLAUDE.md` for the
-  rule set's design principles and how the test suite is organized if
-  you're extending it.
+  binders, and more. For constructs where more than one indentation is a
+  legitimate style choice (e.g. a `calc` step, or a `match` arm someone
+  deliberately indented deeper than usual), pressing TAB again cycles
+  through the other plausible columns instead of insisting on one answer.
+  Under active development — see `CLAUDE.md` for the rule set's design
+  principles and how the test suite is organized if you're extending it.
 
 ## Installation
 
