@@ -68,6 +68,48 @@ called out, rather than left for the reader to line up by eye."
 (defun lean-indent-test (input expected)
   (expect input :to-indent-as expected))
 
+(defun lean-indent--tab-stop-columns (input n)
+  "Press TAB N times at the marker in INPUT, collecting the column after each.
+
+`call-interactively' alone does not update `last-command'/`this-command'
+-- only the top-level command loop does that -- so a repeated press has
+to be simulated by hand here to exercise cycling at all."
+  (with-temp-buffer
+    (let ((lean-use-treesitter t)
+          (indent-tabs-mode nil)
+          last-command this-command)
+      (lean-mode)
+      (lean-utils--insert-and-set-point input lean-indent-test-marker)
+      (mapcar (lambda (_)
+                (setq this-command #'indent-according-to-mode)
+                (call-interactively #'indent-according-to-mode)
+                (setq last-command this-command)
+                (current-indentation))
+              (number-sequence 1 n)))))
+
+(defun lean-indent-tab-stop-test (input columns)
+  (expect (lean-indent--tab-stop-columns input (length columns)) :to-equal columns))
+
+(defun lean-indent--reindent-region (input)
+  "Batch-reindent all of INPUT via `indent-region' and return the buffer.
+
+Unlike `lean-indent--tab-stop-columns', this never simulates a repeat --
+`this-command'/`last-command' are left nil throughout, same as any real
+batch reindent (`eldev test' itself included), which never runs inside
+the command loop."
+  (with-temp-buffer
+    (let ((lean-use-treesitter t)
+          (indent-tabs-mode nil)
+          this-command last-command)
+      (lean-mode)
+      (insert (lean-utils--concatenate-lines input))
+      (indent-region (point-min) (point-max))
+      (buffer-string))))
+
+(defun lean-indent-region-test (input expected)
+  (expect (lean-indent--reindent-region input)
+          :to-equal (lean-utils--concatenate-lines expected)))
+
 (describe "indentation"
 
   (describe "on a blank line"
@@ -706,6 +748,73 @@ called out, rather than left for the reader to line up by eye."
                         '("variable {a : ℝ}"
                           "  var"
                           "def Foo : ℝ → ℝ := fun x ↦ g x")))))
+
+;; Each spec below presses TAB repeatedly on the same already-indented
+;; line and asserts the column after every press.  The first column is
+;; always what `lean-ts-indent-rules' alone would produce for a single
+;; fresh press (never disagrees with the plain default); later presses
+;; walk the construct's `lean-ts-extra-tab-stops' entry one candidate at
+;; a time, then wrap back around to the column the line already had.
+(describe "tab-stop cycling"
+
+  (it "cycles calc's first step through one-in, calc's own column, and the original column"
+    ;; 4: one step in from `calc' -- the plain default (#4), unchanged.
+    ;; 2: flush with `calc' itself.  6: back to this line's own column.
+    (lean-indent-tab-stop-test
+     '("example : Nat :="
+       "  calc"
+       "      ‸1 = 1 := rfl")
+     '(4 2 6)))
+
+  (it "wraps back around to the default on a fourth press"
+    (lean-indent-tab-stop-test
+     '("example : Nat :="
+       "  calc"
+       "      ‸1 = 1 := rfl")
+     '(4 2 6 4)))
+
+  (it "cycles a first-of-kind match arm between the keyword's column and the original column"
+    ;; 2: flush with `match' -- the plain default, and #4's own
+    ;; regression case.  6: the deeper, deliberate-looking column #4
+    ;; found ambiguous and refused to guess at; now available on
+    ;; request instead of just discarded.
+    (lean-indent-tab-stop-test
+     '("def f (n : Nat) : Nat :="
+       "  match n with"
+       "      ‸| 0 => 1")
+     '(2 6 2 6)))
+
+  (it "does not cycle a later arm, which has no deliberate-style reading to offer"
+    ;; Unlike the first arm above, a later arm's column isn't ambiguous
+    ;; -- `lean-ts--first-of-kind-p' excludes it, so every press just
+    ;; re-applies the plain default.
+    (lean-indent-tab-stop-test
+     '("def f (n : Nat) : Nat :="
+       "  match n with"
+       "  | 0 => 1"
+       "      ‸| _ => 2")
+     '(2 2)))
+
+  ;; A batch reindent covering more than one extra-tab-stop-eligible
+  ;; construct used to leak the first one's cycle state into the second
+  ;; -- see #5 -- since both constructs see the same nil `this-command'.
+  ;; Each should land on its own fresh (candidate 0) column regardless.
+  (it "gives every construct its own fresh column in a batch reindent"
+    (lean-indent-region-test
+     '("example : Nat :="
+       "  calc"
+       "      1 = 1 := rfl"
+       ""
+       "def f (n : Nat) : Nat :="
+       "  match n with"
+       "      | 0 => 1")
+     '("example : Nat :="
+       "  calc"
+       "    1 = 1 := rfl"
+       ""
+       "def f (n : Nat) : Nat :="
+       "  match n with"
+       "  | 0 => 1"))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here
