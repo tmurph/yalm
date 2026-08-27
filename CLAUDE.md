@@ -338,6 +338,19 @@ preservation itself. That didn't just avoid the private-API dependency, it
 eliminated the entire class of bug Tim had found, at the root, instead of
 working around it.
 
+That rewrite introduced a new bug of its own worth knowing about
+specifically: `treesit-indent-function` fires during both interactive
+typing and batch `indent-region` calls, and the first version's
+repeat-detection check (`(eq this-command last-command)`) didn't account
+for `this-command`/`last-command` both being `nil` outside the command
+loop — which a batch reindent always is. The two nils compared equal, so
+every line after the first eligible construct in a batch reindent
+silently inherited stale cycling state instead of computing fresh
+candidates. Fixed in `e12c82e` by also requiring `this-command` non-nil.
+**Any hook shared between an interactive path and a batch path needs an
+explicit "am I actually in the command loop" guard, not just an `eq`
+between two variables that both default to nil.**
+
 **How to apply:** when Tim does a feasibility check involving a library's
 internals, explicitly search for the intended public hook first — don't
 stop at "I found a way to make this work." When reviewing (Erica) or
