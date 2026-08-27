@@ -90,6 +90,26 @@ to be simulated by hand here to exercise cycling at all."
 (defun lean-indent-tab-stop-test (input columns)
   (expect (lean-indent--tab-stop-columns input (length columns)) :to-equal columns))
 
+(defun lean-indent--reindent-region (input)
+  "Batch-reindent all of INPUT via `indent-region' and return the buffer.
+
+Unlike `lean-indent--tab-stop-columns', this never simulates a repeat --
+`this-command'/`last-command' are left nil throughout, same as any real
+batch reindent (`eldev test' itself included), which never runs inside
+the command loop."
+  (with-temp-buffer
+    (let ((lean-use-treesitter t)
+          (indent-tabs-mode nil)
+          this-command last-command)
+      (lean-mode)
+      (insert (lean-utils--concatenate-lines input))
+      (indent-region (point-min) (point-max))
+      (buffer-string))))
+
+(defun lean-indent-region-test (input expected)
+  (expect (lean-indent--reindent-region input)
+          :to-equal (lean-utils--concatenate-lines expected)))
+
 (describe "indentation"
 
   (describe "on a blank line"
@@ -773,7 +793,28 @@ to be simulated by hand here to exercise cycling at all."
        "  match n with"
        "  | 0 => 1"
        "      ‸| _ => 2")
-     '(2 2))))
+     '(2 2)))
+
+  ;; A batch reindent covering more than one extra-tab-stop-eligible
+  ;; construct used to leak the first one's cycle state into the second
+  ;; -- see #5 -- since both constructs see the same nil `this-command'.
+  ;; Each should land on its own fresh (candidate 0) column regardless.
+  (it "gives every construct its own fresh column in a batch reindent"
+    (lean-indent-region-test
+     '("example : Nat :="
+       "  calc"
+       "      1 = 1 := rfl"
+       ""
+       "def f (n : Nat) : Nat :="
+       "  match n with"
+       "      | 0 => 1")
+     '("example : Nat :="
+       "  calc"
+       "    1 = 1 := rfl"
+       ""
+       "def f (n : Nat) : Nat :="
+       "  match n with"
+       "  | 0 => 1"))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here

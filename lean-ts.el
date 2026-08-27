@@ -520,8 +520,11 @@ If a rule in `lean-ts-extra-tab-stops' matches (NODE PARENT BOL) and if
 the user repeats the command, then this function will return the next
 tab stop, eventually looping back to return the original indentation."
   (cond
-   ;; repeating
-   ((and lean-ts--tab-stop-state (eq this-command last-command))
+   ;; repeating -- `this-command' is nil outside the command loop (batch
+   ;; `indent-region', script use), where it would otherwise vacuously
+   ;; `eq' a likewise-nil `last-command' and misread every line of a
+   ;; batch reindent as a repeat of whatever construct came before it.
+   ((and this-command lean-ts--tab-stop-state (eq this-command last-command))
     (setq lean-ts--tab-stop-state (cdr lean-ts--tab-stop-state))
     (car lean-ts--tab-stop-state))
    ;; maybe set up repeats
