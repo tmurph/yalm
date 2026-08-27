@@ -426,7 +426,14 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
 
 ;;;; Tab-stop cycling
 
-(defconst lean-ts-indent-extra-tab-stops nil
+(defconst lean-ts-indent-extra-tab-stops
+  `(;; calc's first step, when it doesn't share `calc''s own line -- see
+    ;; #4/#5.  Default (via `lean-ts-indent-rules') is one step in from
+    ;; `calc'; offer "flush with calc" and "wherever the user already
+    ;; had it" as additional readings.
+    ((and (node-is "calc_first_step") (not lean-ts--calc-shares-line-p))
+     (standalone-parent . 0)
+     (no-indent . 0)))
   "Per-construct EXTRA candidate tab stops for `lean-ts--indent-line'.
 
 Shaped like `lean-ts-indent-rules' -- same MATCHER vocabulary -- but the
@@ -479,28 +486,42 @@ the construct has no entry in `lean-ts-indent-extra-tab-stops'."
 (defun lean-ts--indent-line ()
   "Indent the current line, cycling extra tab stops on repeated presses.
 
-NODE/PARENT are computed the way `treesit--indent-1' computes them, not
-via `treesit-node-at' -- the latter returns the smallest leaf at BOL,
-which disagrees with the rules whenever a compound node and a leaf token
-share a start position (arms, calc steps), and never reports a blank
-line as blank, which would silently break `lean-ts-empty-line-indent-rules'."
-  (let* ((bol (save-excursion (forward-line 0) (skip-chars-forward " \t") (point)))
-         (node (treesit--indent-largest-node-at bol))
-         (parent (if node (treesit-node-parent node) (treesit-node-on bol bol)))
-         (candidates (lean-ts--tab-stop-candidates node parent bol)))
+Checks for a repeat before recomputing NODE/PARENT/CANDIDATES: a
+candidate like `no-indent' anchors on this line's own leading
+whitespace, which the previous press already edited, so recomputing
+against the now-edited buffer would chase a moving target and never
+actually advance the cycle.  Reusing the stored candidate list keeps
+every candidate's column stable across the whole cycle instead.
+
+NODE/PARENT, when they do need recomputing, are computed the way
+`treesit--indent-1' computes them, not via `treesit-node-at' -- the
+latter returns the smallest leaf at BOL, which disagrees with the rules
+whenever a compound node and a leaf token share a start position (arms,
+calc steps), and never reports a blank line as blank, which would
+silently break `lean-ts-empty-line-indent-rules'."
+  (let* ((here (line-beginning-position))
+         (repeating (and (eq last-command this-command)
+                          lean-ts--tab-stop-state
+                          (= here (nth 0 lean-ts--tab-stop-state))
+                          (= (current-indentation)
+                             (lean-ts--tab-stop-column
+                              (nth (nth 2 lean-ts--tab-stop-state)
+                                   (nth 1 lean-ts--tab-stop-state))))))
+         (candidates (if repeating
+                         (nth 1 lean-ts--tab-stop-state)
+                       (let* ((bol (save-excursion (forward-line 0)
+                                                    (skip-chars-forward " \t")
+                                                    (point)))
+                              (node (treesit--indent-largest-node-at bol))
+                              (parent (if node (treesit-node-parent node)
+                                        (treesit-node-on bol bol))))
+                         (lean-ts--tab-stop-candidates node parent bol)))))
     (if (null candidates)
-        (treesit-indent)
-      (let* ((here (line-beginning-position))
-             (repeating (and (eq last-command this-command)
-                              lean-ts--tab-stop-state
-                              (= here (nth 0 lean-ts--tab-stop-state))
-                              (equal candidates (nth 1 lean-ts--tab-stop-state))
-                              (= (current-indentation)
-                                 (lean-ts--tab-stop-column
-                                  (nth (nth 2 lean-ts--tab-stop-state) candidates)))))
-             (idx (if repeating
-                      (mod (1+ (nth 2 lean-ts--tab-stop-state)) (length candidates))
-                    0))
+        (progn (setq lean-ts--tab-stop-state nil)
+               (treesit-indent))
+      (let* ((idx (if repeating
+                       (mod (1+ (nth 2 lean-ts--tab-stop-state)) (length candidates))
+                     0))
              (delta (- (point-max) (point))))
         (setq lean-ts--tab-stop-state (list here candidates idx))
         (indent-line-to (lean-ts--tab-stop-column (nth idx candidates)))

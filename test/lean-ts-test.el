@@ -68,6 +68,28 @@ called out, rather than left for the reader to line up by eye."
 (defun lean-indent-test (input expected)
   (expect input :to-indent-as expected))
 
+(defun lean-indent--tab-stop-columns (input n)
+  "Press TAB N times at the marker in INPUT, collecting the column after each.
+
+`call-interactively' alone does not update `last-command'/`this-command'
+-- only the top-level command loop does that -- so a repeated press has
+to be simulated by hand here to exercise cycling at all."
+  (with-temp-buffer
+    (let ((lean-use-treesitter t)
+          (indent-tabs-mode nil)
+          last-command this-command)
+      (lean-mode)
+      (lean-utils--insert-and-set-point input lean-indent-test-marker)
+      (mapcar (lambda (_)
+                (setq this-command #'indent-according-to-mode)
+                (call-interactively #'indent-according-to-mode)
+                (setq last-command this-command)
+                (current-indentation))
+              (number-sequence 1 n)))))
+
+(defun lean-indent-tab-stop-test (input columns)
+  (expect (lean-indent--tab-stop-columns input (length columns)) :to-equal columns))
+
 (describe "indentation"
 
   (describe "on a blank line"
@@ -706,6 +728,46 @@ called out, rather than left for the reader to line up by eye."
                         '("variable {a : ℝ}"
                           "  var"
                           "def Foo : ℝ → ℝ := fun x ↦ g x")))))
+
+(describe "tab-stop cycling"
+
+  (it "cycles calc's first step through one-in, calc's own column, and the original column"
+    (lean-indent-tab-stop-test
+     '("example : Nat :="
+       "  calc"
+       "      ‸1 = 1 := rfl")
+     '(4 2 6)))
+
+  (it "wraps back around to the default on a fourth press"
+    (lean-indent-tab-stop-test
+     '("example : Nat :="
+       "  calc"
+       "      ‸1 = 1 := rfl")
+     '(4 2 6 4)))
+
+  (it "resets the cycle when point moves to a different line"
+    (with-temp-buffer
+      (let ((lean-use-treesitter t)
+            (indent-tabs-mode nil)
+            last-command this-command)
+        (lean-mode)
+        (lean-utils--insert-and-set-point
+         '("example : Nat :="
+           "  calc"
+           "      ‸1 = 1 := rfl")
+         lean-indent-test-marker)
+        (setq this-command #'indent-according-to-mode)
+        (call-interactively #'indent-according-to-mode)
+        (setq last-command this-command)
+        (forward-line -1)
+        (end-of-line)
+        (setq this-command #'indent-according-to-mode)
+        (call-interactively #'indent-according-to-mode)
+        (setq last-command this-command)
+        (forward-line 1)
+        (setq this-command #'indent-according-to-mode)
+        (call-interactively #'indent-according-to-mode)
+        (expect (current-indentation) :to-equal 4)))))
 
 (provide 'lean-ts-test)
 ;;; lean-ts-test.el ends here
