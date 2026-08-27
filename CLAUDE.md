@@ -129,6 +129,14 @@ Reconciling branches, and deciding when a batch is ready to fast-forward
 into `main` (and for Trevor's attention), is the orchestrating session's
 job, not something either agent does itself.
 
+**Landing on `devel` does not imply landing on `main`.** Fast-forward
+`devel` from `erica/review` as each unit of work clears review — that part
+is routine and doesn't need to wait for Trevor. Fast-forwarding `main` from
+`devel` and pushing to `origin/main` is a separate, later step that only
+happens when Trevor explicitly asks for it, not automatically every time
+`devel` advances. `devel` is where finished, reviewed work accumulates in
+the meantime.
+
 Two historical notes on the branch this pipeline lands on, neither of
 which should recur:
 - The initial round of indentation gaps 1–5 plus this pipeline's own
