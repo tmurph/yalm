@@ -192,6 +192,10 @@ continuation, and the hanging rules handle it instead."
   (pcase-let ((`(,head . ,item) (lean-ts--hanging-parts parent)))
     (lean-ts--same-line-p head item)))
 
+(defun lean-ts--calc-shares-line-p (_node parent &rest _)
+  "Non-nil when PARENT (a `calc' node) has its first step on `calc''s own line."
+  (lean-ts--same-line-p parent (treesit-node-child parent 1)))
+
 (defun lean-ts--hanging-item-anchor (_node parent &rest _)
   "Anchor on the first item of PARENT, for lining the rest up under it."
   (treesit-node-start (cdr (lean-ts--hanging-parts parent))))
@@ -337,8 +341,15 @@ Assumes (NODE PARENT BOL) are calculated for the previous non-blank line.")
     ;; with the keyword and only an arm's own body indents past it.
     ((node-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent 0)
     ((parent-is ,(lean-ts--regexp lean-ts-arm-nodes)) standalone-parent lean-ts-indent-offset)
-    ;; `calc' steps are the same flat-run shape -- see #2.
-    ((node-is ,(lean-ts--regexp lean-ts-calc-step-nodes)) standalone-parent 0)
+    ;; `calc' steps are the same flat-run shape as arms -- see #2, #3.
+    ;; Whether the leading step shares `calc''s own line decides whether
+    ;; every step (including that one) aligns with `calc' or indents one
+    ;; step in from it, the same way a hanging node's first item does.
+    ((and (node-is ,(lean-ts--regexp lean-ts-calc-step-nodes))
+          lean-ts--calc-shares-line-p)
+     standalone-parent 0)
+    ((node-is ,(lean-ts--regexp lean-ts-calc-step-nodes))
+     standalone-parent lean-ts-indent-offset)
     ;; The body of a `fun' that is not pattern matching.
     ((parent-is ,(lean-ts--regexp '("fun"))) standalone-parent lean-ts-indent-offset)
     ;; Fields and constructors are in the `fields' and `constructors'

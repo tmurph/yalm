@@ -669,6 +669,14 @@ called out, rather than left for the reader to line up by eye."
                           "  calc 1"
                           "  _ = 1 := rfl")))
 
+    (it "increases from a bare \"calc\" when the first step starts its own line"
+      (lean-indent-test '("example : Nat :="
+                          "  calc"
+                          "‸1 = 1 := rfl")
+                        '("example : Nat :="
+                          "  calc"
+                          "    1 = 1 := rfl")))
+
     ;; Each step's own `by' proof used to leave the tactic block's
     ;; deeper column as the previous line, so the next step -- itself
     ;; already correctly aligned -- fell to the catch-all and inherited
